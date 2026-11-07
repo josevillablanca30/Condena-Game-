@@ -13,27 +13,23 @@ func _ready() -> void:
     hacker.opponent = chico
     chico.opponent = hacker
     hacker.defeated.connect(func(): _finish(false))
+    chico.max_health = 620.0
+    hacker.max_health = 740.0
+    hacker.health = 740.0
+    chico.health = 620.0
     chico.defeated.connect(func(): _finish(true))
     _build_ui()
+    var ai := AIElChico.new()
+    ai.fighter = chico
+    ai.target = hacker
+    add_child(ai)
     queue_redraw()
 
 func _process(delta: float) -> void:
     if match_over:
         return
     hacker.set_direction(movement)
-    var distance := chico.position.x - hacker.position.x
-    if absf(distance) > 83.0:
-        chico.set_direction(-signf(distance))
-    else:
-        chico.set_direction(0.0)
-    ai_cooldown -= delta
-    if absf(distance) <= 100.0 and ai_cooldown <= 0.0:
-        if randf() < 0.22:
-            chico.set_block(true)
-            get_tree().create_timer(0.55).timeout.connect(func(): if is_instance_valid(chico): chico.set_block(false))
-        else:
-            chico.quick_attack()
-        ai_cooldown = randf_range(0.9, 1.7)
+    # La IA ahora se ejecuta desde AIElChico, sin duplicar ataques.
     health_label.text = "HACKER  %d HP | %d RES.            EL CHICO  %d HP" % [int(hacker.health), int(hacker.stamina), int(chico.health)]
     queue_redraw()
 
@@ -62,6 +58,7 @@ func _build_ui() -> void:
     add_child(layer)
     var ui := Control.new()
     ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    ui.mouse_filter = Control.MOUSE_FILTER_PASS
     layer.add_child(ui)
     health_label = Label.new()
     health_label.position = Vector2(36, 25)
@@ -76,6 +73,7 @@ func _build_ui() -> void:
     _button(ui, "RÁPIDO", Vector2(875, 590), Vector2(110, 70), func(): hacker.quick_attack())
     _button(ui, "FUERTE", Vector2(995, 510), Vector2(110, 70), func(): hacker.heavy_attack())
     _button(ui, "ESQUIVA", Vector2(1120, 590), Vector2(120, 70), func(): hacker.dodge())
+    _button(ui, "AGARRE", Vector2(620, 590), Vector2(110, 70), func(): hacker.grab_attack())
     _button(ui, "BLOQUEO", Vector2(745, 510), Vector2(120, 70), func(): hacker.set_block(true), func(): hacker.set_block(false))
 
 func _button(parent: Control, caption: String, pos: Vector2, size: Vector2, pressed_action: Callable, released_action: Callable = Callable()) -> void:
