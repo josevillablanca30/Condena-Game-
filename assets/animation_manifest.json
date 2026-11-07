@@ -1,0 +1,116 @@
+{
+  "format_version": 1,
+  "art_direction": "Manga seinen original, monocromático, anatomía realista, sin variaciones de rostro, ropa ni proporciones",
+  "canvas": {
+    "width": 512,
+    "height": 512,
+    "origin": "bottom_center",
+    "transparent": true
+  },
+  "characters": {
+    "hacker": {
+      "facing": "right",
+      "animations": {
+        "idle": {
+          "frames": 8,
+          "fps": 8,
+          "loop": true
+        },
+        "walk": {
+          "frames": 8,
+          "fps": 12,
+          "loop": true
+        },
+        "quick_attack": {
+          "frames": 6,
+          "fps": 14,
+          "loop": false,
+          "impact_frame": 3
+        },
+        "heavy_attack": {
+          "frames": 8,
+          "fps": 12,
+          "loop": false,
+          "impact_frame": 5
+        },
+        "block": {
+          "frames": 4,
+          "fps": 8,
+          "loop": true
+        },
+        "dodge": {
+          "frames": 6,
+          "fps": 15,
+          "loop": false
+        },
+        "grab": {
+          "frames": 8,
+          "fps": 12,
+          "loop": false
+        },
+        "hit": {
+          "frames": 6,
+          "fps": 12,
+          "loop": false
+        },
+        "knockout": {
+          "frames": 8,
+          "fps": 10,
+          "loop": false
+        }
+      }
+    },
+    "chico": {
+      "facing": "left",
+      "animations": {
+        "idle": {
+          "frames": 8,
+          "fps": 8,
+          "loop": true
+        },
+        "walk": {
+          "frames": 8,
+          "fps": 12,
+          "loop": true
+        },
+        "quick_attack": {
+          "frames": 6,
+          "fps": 14,
+          "loop": false,
+          "impact_frame": 3
+        },
+        "heavy_attack": {
+          "frames": 8,
+          "fps": 12,
+          "loop": false,
+          "impact_frame": 5
+        },
+        "block": {
+          "frames": 4,
+          "fps": 8,
+          "loop": true
+        },
+        "dodge": {
+          "frames": 6,
+          "fps": 15,
+          "loop": false
+        },
+        "grab": {
+          "frames": 8,
+          "fps": 12,
+          "loop": false
+        },
+        "hit": {
+          "frames": 6,
+          "fps": 12,
+          "loop": false
+        },
+        "knockout": {
+          "frames": 8,
+          "fps": 10,
+          "loop": false
+        }
+      }
+    }
+  }
+}
