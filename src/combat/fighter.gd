@@ -30,7 +30,10 @@ const BODY_HALF_WIDTH := 27.0
 const MIN_BODY_GAP := BODY_HALF_WIDTH * 2.0
 var facing := 1.0
 var dodge_velocity := 0.0
+var recovery_time := 0.0
+var feint_window := 0.0
 signal confirmed_hit(move_id: String, target: CondenaFighter)
+signal combat_event(event_name: String, move_id: String)
 # Repertorio configurable: las técnicas comparten ranuras y tienen costes propios.
 var equipped_moves: Dictionary = {"light": "jab", "heavy": "cross", "grapple": "clinch"}
 const MOVE_DATA := {
@@ -77,6 +80,8 @@ func _physics_process(delta: float) -> void:
     stun_time = maxf(0.0, stun_time - delta)
     leg_slow_time = maxf(0.0, leg_slow_time - delta)
     knockdown_time = maxf(0.0, knockdown_time - delta)
+    recovery_time = maxf(0.0, recovery_time - delta)
+    feint_window = maxf(0.0, feint_window - delta)
     stamina = minf(max_stamina, stamina + (6.0 if blocking else 16.0) * delta)
     guard_pressure = maxf(0.0, guard_pressure - 9.0 * delta)
     stamina_changed.emit(stamina)
@@ -101,7 +106,7 @@ func heavy_attack() -> void:
     use_move("heavy")
 
 func dodge() -> void:
-    if dead or busy or blocking or stun_time > 0.0 or knockdown_time > 0.0 or stamina < 18.0:
+    if dead or busy or blocking or stun_time > 0.0 or knockdown_time > 0.0 or recovery_time > 0.0 or stamina < 18.0:
         return
     stamina -= 18.0
     busy = true
@@ -117,13 +122,27 @@ func dodge() -> void:
 func grab_attack() -> void:
     use_move("grapple")
 
+func feint() -> void:
+    # Amague: provoca reacción sin crear hitbox ni daño.
+    if dead or busy or blocking or stun_time > 0.0 or knockdown_time > 0.0 or recovery_time > 0.0 or stamina < 12.0:
+        return
+    stamina -= 12.0
+    busy = true
+    feint_window = 0.18
+    combat_event.emit("feint", "")
+    await get_tree().create_timer(0.18).timeout
+    if is_inside_tree() and not dead:
+        busy = false
+        recovery_time = 0.12
+
 func _attack(cost: float, damage: float, reach: float, duration: float, kind: String) -> void:
-    if dead or busy or blocking or stun_time > 0.0 or knockdown_time > 0.0 or stamina < cost:
+    if dead or busy or blocking or stun_time > 0.0 or knockdown_time > 0.0 or recovery_time > 0.0 or stamina < cost:
         return
     stamina -= cost
     busy = true
     attack_serial += 1
     attack_kind = kind
+    combat_event.emit("attack_started", kind)
     var serial := attack_serial
     var move_id: String = str(equipped_moves.get("light", "")) if kind == "quick" else str(equipped_moves.get("heavy", "")) if kind == "heavy" else str(equipped_moves.get("grapple", ""))
     var locked_facing := facing
@@ -138,14 +157,19 @@ func _attack(cost: float, damage: float, reach: float, duration: float, kind: St
         if contact and not opponent.invulnerable:
             opponent.receive_hit(damage, kind, move_id)
             confirmed_hit.emit(move_id, opponent)
+            combat_event.emit("hit_confirmed", move_id)
+        else:
+            combat_event.emit("attack_whiffed", move_id)
     await get_tree().create_timer(duration * 0.55).timeout
     if is_inside_tree() and serial == attack_serial:
         busy = false
+        recovery_time = 0.10 if kind == "quick" else 0.20
 
 func receive_hit(damage: float, kind: String = "quick", move_id: String = "") -> void:
     if dead or invulnerable:
         return
-    # Agarres contrarrestan bloqueo; ataques fuertes desgastan la guardia.
+    # La guardia absorbe daño pero no es universal: los agarres la superan.
+    var was_blocking := blocking
     var guard_broken := false
     if blocking and kind != "grab":
         var guard_cost := 8.0 if kind == "quick" else 24.0
@@ -166,7 +190,11 @@ func receive_hit(damage: float, kind: String = "quick", move_id: String = "") ->
         attack_serial += 1
         busy = false
         attack_kind = ""
-    var guarded := blocking and kind != "grab"
+    var guarded := was_blocking and not guard_broken and kind != "grab"
+    if guarded:
+        combat_event.emit("guarded", move_id)
+    elif guard_broken:
+        combat_event.emit("guard_broken", move_id)
     health = maxf(0.0, health - damage * (0.25 if guarded else 1.0))
     if move_id == "low_kick" and not guarded:
         leg_slow_time = maxf(leg_slow_time, 2.0)
