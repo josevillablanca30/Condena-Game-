@@ -1,10 +1,6 @@
 name: Godot syntax and headless smoke check
+# Ejecucion manual: evita gastar minutos de Actions en cada commit.
 on:
-  push:
-    branches:
-      - main
-      - 'work/**'
-  pull_request:
   workflow_dispatch:
 jobs:
   godot-check:
