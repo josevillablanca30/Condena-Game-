@@ -25,6 +25,10 @@ var player_health_bar: ProgressBar
 var player_stamina_bar: ProgressBar
 var enemy_health_bar: ProgressBar
 var enemy_stamina_bar: ProgressBar
+var elapsed_seconds := 0.0
+var event_history: Array[Dictionary] = []
+var fighter_stats: Dictionary = {"HACKER": {"hits": 0, "dodges": 0, "parries": 0, "counters": 0, "combos": 0}, "EL CHICO": {"hits": 0, "dodges": 0, "parries": 0, "counters": 0, "combos": 0}}
+var timer_label: Label
 const MOVE_LABELS := {"jab": "JAB", "low_kick": "PATADA BAJA", "cross": "CROSS", "elbow": "CODAZO", "clinch": "CLINCH", "takedown": "DERRIBO"}
 const EVENT_LABELS := {
     "feint": "AMAGUE",
@@ -69,9 +73,17 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
     hit_effect_time = maxf(0.0, hit_effect_time - delta)
+    if match_started and not match_over:
+        elapsed_seconds += delta
+        timer_label.text = "%02d:%02d" % [int(elapsed_seconds) / 60, int(elapsed_seconds) % 60]
     if match_over:
         return
-    hacker.set_direction(movement if match_started else 0.0)
+    var keyboard_direction := 0.0
+    if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT):
+        keyboard_direction -= 1.0
+    if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):
+        keyboard_direction += 1.0
+    hacker.set_direction(clampf(movement + keyboard_direction, -1.0, 1.0) if match_started else 0.0)
     # La IA ahora se ejecuta desde AIElChico, sin duplicar ataques.
     health_label.text = "HACKER"
     player_health_bar.max_value = hacker.max_health
@@ -108,6 +120,20 @@ func _update_combo(hits: int) -> void:
 func _record_event(actor: String, event_name: String, move_id: String) -> void:
     var technique := str(MOVE_LABELS.get(move_id, move_id))
     var entry := "%s: %s %s" % [actor, str(EVENT_LABELS.get(event_name, event_name)), technique]
+    event_history.append({"time": snappedf(elapsed_seconds, 0.01), "fighter": actor, "event": event_name, "move": move_id})
+    var stats: Dictionary = fighter_stats[actor]
+    match event_name:
+        "hit_confirmed":
+            stats["hits"] += 1
+        "combo_hit":
+            stats["hits"] += 1
+            stats["combos"] += 1
+        "perfect_dodge":
+            stats["dodges"] += 1
+        "perfect_parry":
+            stats["parries"] += 1
+        "counter_hit":
+            stats["counters"] += 1
     combat_feed.push_front(entry)
     if combat_feed.size() > 4:
         combat_feed.pop_back()
@@ -180,6 +206,11 @@ func _build_ui() -> void:
     status_label.position = Vector2(435, 100)
     status_label.add_theme_font_size_override("font_size", 30)
     ui.add_child(status_label)
+    timer_label = Label.new()
+    timer_label.position = Vector2(604, 25)
+    timer_label.add_theme_font_size_override("font_size", 28)
+    timer_label.text = "00:00"
+    ui.add_child(timer_label)
     feed_label = Label.new()
     feed_label.position = Vector2(38, 117)
     feed_label.add_theme_font_size_override("font_size", 15)
@@ -204,6 +235,38 @@ func _build_ui() -> void:
     _button(ui, "AMAGUE", Vector2(500, 500), Vector2(115, 65), func(): _try_feint())
     _button(ui, "PARADA", Vector2(875, 505), Vector2(110, 70), func(): _try_parry())
     _button(ui, "BLOQUEO", Vector2(745, 510), Vector2(120, 70), func(): hacker.set_block(true), func(): hacker.set_block(false))
+
+func _unhandled_key_input(event: InputEvent) -> void:
+    if not event is InputEventKey:
+        return
+    var key_event: InputEventKey = event
+    if key_event.echo:
+        return
+    if key_event.keycode == KEY_SHIFT:
+        if match_started and not match_over:
+            hacker.set_block(key_event.pressed)
+        return
+    if not key_event.pressed:
+        return
+    if not match_started:
+        if key_event.keycode == KEY_ENTER:
+            _start_combat()
+        return
+    if match_over:
+        return
+    match key_event.keycode:
+        KEY_J:
+            hacker.quick_attack()
+        KEY_K:
+            hacker.heavy_attack()
+        KEY_L:
+            hacker.grab_attack()
+        KEY_SPACE:
+            hacker.dodge()
+        KEY_F:
+            hacker.parry()
+        KEY_E:
+            hacker.feint()
 
 func _try_parry() -> void:
     if match_started and not match_over:
@@ -271,4 +334,7 @@ func _finish(won: bool) -> void:
     hacker.set_direction(0.0)
     chico.set_direction(0.0)
     status_label.text = "GANASTE" if won else "PERDISTE"
+    var winner := "HACKER" if won else "EL CHICO"
+    var stats: Dictionary = fighter_stats[winner]
     status_label.text += " — La historia continúa"
+    status_label.text += "\n%s: %d impactos · %d combos · %d esquivas · %d paradas · %d contras" % [winner, int(stats["hits"]), int(stats["combos"]), int(stats["dodges"]), int(stats["parries"]), int(stats["counters"])]
