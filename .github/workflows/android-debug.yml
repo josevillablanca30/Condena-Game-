@@ -16,6 +16,19 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: work/condena-combate-v02-20261107
+      - name: Install Android export prerequisites
+        run: |
+          set -eu
+          mkdir -p /github/home/.local/share/godot/export_templates/4.2.2.stable
+          curl -fL --retry 3 --retry-delay 3 -o /tmp/templates.tpz \
+            https://github.com/godotengine/godot/releases/download/4.2.2-stable/Godot_v4.2.2-stable_export_templates.tpz
+          unzip -q /tmp/templates.tpz -d /tmp/godot-templates
+          cp /tmp/godot-templates/templates/android_debug.apk /github/home/.local/share/godot/export_templates/4.2.2.stable/
+          cp /tmp/godot-templates/templates/android_release.apk /github/home/.local/share/godot/export_templates/4.2.2.stable/
+          test -f /github/home/.local/share/godot/export_templates/4.2.2.stable/android_debug.apk
+          java -version
+          echo "ANDROID_HOME=${ANDROID_HOME:-unset}"
+          echo "JAVA_HOME=${JAVA_HOME:-unset}"
       - name: Godot import and parse
         run: godot --headless --path . --editor --import --quit
       - name: Combat smoke tests
