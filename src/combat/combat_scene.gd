@@ -206,30 +206,53 @@ func _process(delta: float) -> void:
 func _draw() -> void:
     var camera_shift := Vector2(impact_direction * camera_impact_strength * camera_impact / 0.15, 0.0)
     draw_set_transform(camera_shift)
-    # Patio de la carcel: arte procedural original sin assets ni creditos externos.
-    draw_rect(Rect2(0, 0, 1280, 720), Color(0.075, 0.075, 0.075))
-    draw_rect(Rect2(0, 0, 1280, 475), Color(0.13, 0.13, 0.13))
-    for x in range(0, 1280, 128):
-        draw_line(Vector2(x, 0), Vector2(x, 472), Color(0.19, 0.19, 0.19), 3.0)
-    for y in range(90, 475, 92):
-        draw_line(Vector2(0, y), Vector2(1280, y), Color(0.18, 0.18, 0.18), 2.0)
-    # Ventanas con barrotes y siluetas de publico en segundo plano.
+    # Patio de condenados: profundidad, hormigon, rejas y luz dramatica.
+    draw_rect(Rect2(0, 0, 1280, 720), Color("#111519"))
+    draw_rect(Rect2(0, 0, 1280, 472), Color("#22272a"))
+    for stripe in range(16):
+        var sy := float(stripe) * 32.0
+        draw_line(Vector2(0, sy), Vector2(1280, sy), Color("#2e3437"), 1.0)
+    for column in range(11):
+        var cx := float(column) * 128.0
+        draw_rect(Rect2(cx, 0, 10, 468), Color("#191d20"))
+        draw_line(Vector2(cx + 10, 0), Vector2(cx + 10, 468), Color("#454a4b"), 2.0)
+    # Ventanales altos, barrotes y luz inclinada desde el corredor.
     for window_index in range(4):
-        var wx := 96.0 + float(window_index) * 312.0
-        draw_rect(Rect2(wx, 65, 170, 190), Color(0.035, 0.035, 0.035))
-        for bar_index in range(5):
-            var bx := wx + 18.0 + float(bar_index) * 33.0
-            draw_line(Vector2(bx, 65), Vector2(bx, 255), Color(0.38, 0.38, 0.38), 6.0)
-        draw_line(Vector2(wx, 170), Vector2(wx + 170, 170), Color(0.33, 0.33, 0.33), 5.0)
-    for crowd_index in range(15):
-        var sx := 32.0 + float(crowd_index) * 87.0
-        var sy := 412.0 + float(crowd_index % 3) * 11.0
-        draw_circle(Vector2(sx, sy - 38.0), 17.0, Color(0.065, 0.065, 0.065))
-        draw_rect(Rect2(sx - 22.0, sy - 20.0, 44.0, 67.0), Color(0.065, 0.065, 0.065))
-    draw_rect(Rect2(0, 480, 1280, 240), Color(0.22, 0.22, 0.22))
-    draw_line(Vector2(0, 480), Vector2(1280, 480), Color(0.5, 0.5, 0.5), 4.0)
-    for x in range(0, 1280, 80):
-        draw_line(Vector2(x, 480), Vector2(x - 110, 720), Color(0.32, 0.32, 0.32), 1.0)
+        var wx := 95.0 + float(window_index) * 312.0
+        draw_rect(Rect2(wx - 10, 48, 184, 218), Color("#121518"))
+        draw_rect(Rect2(wx, 57, 164, 192), Color("#080b0e"))
+        for bar_index in range(6):
+            var bx := wx + 12.0 + float(bar_index) * 28.0
+            draw_line(Vector2(bx, 57), Vector2(bx, 249), Color("#687071"), 6.0)
+            draw_line(Vector2(bx - 2, 57), Vector2(bx - 2, 249), Color("#24292c"), 2.0)
+        draw_line(Vector2(wx, 158), Vector2(wx + 164, 158), Color("#6b7170"), 7.0)
+        draw_line(Vector2(wx - 10, 259), Vector2(wx + 174, 259), Color("#0b0d0f"), 10.0)
+    for lamp in range(3):
+        var lx := 190.0 + float(lamp) * 445.0
+        draw_rect(Rect2(lx - 38, 7, 76, 13), Color("#080b0c"))
+        draw_rect(Rect2(lx - 25, 20, 50, 7), Color("#a99b72"))
+        draw_colored_polygon(PackedVector2Array([Vector2(lx - 24, 27), Vector2(lx + 24, 27), Vector2(lx + 160, 452), Vector2(lx - 160, 452)]), Color(0.71, 0.63, 0.44, 0.045))
+    # Reclusos al fondo; siluetas a distintas alturas.
+    for crowd_index in range(16):
+        var sx := 22.0 + float(crowd_index) * 83.0
+        var sy := 418.0 + float(crowd_index % 4) * 8.0
+        var shadow := Color("#0c1012") if crowd_index % 3 else Color("#14191b")
+        draw_circle(Vector2(sx, sy - 46), 16.0, shadow)
+        draw_colored_polygon(PackedVector2Array([Vector2(sx - 19, sy - 27), Vector2(sx + 19, sy - 27), Vector2(sx + 28, 469), Vector2(sx - 28, 469)]), shadow)
+    draw_rect(Rect2(0, 457, 1280, 19), Color("#0d1012"))
+    draw_line(Vector2(0, 457), Vector2(1280, 457), Color("#656969"), 3.0)
+    draw_colored_polygon(PackedVector2Array([Vector2(0, 476), Vector2(1280, 476), Vector2(1280, 720), Vector2(0, 720)]), Color("#34383a"))
+    for depth in range(1, 7):
+        var fy := 476.0 + pow(float(depth) / 6.0, 1.6) * 244.0
+        draw_line(Vector2(0, fy), Vector2(1280, fy), Color("#494c4b"), 1.0 + float(depth) * 0.25)
+    for floor_line in range(-8, 20):
+        var foot_x := float(floor_line) * 116.0
+        draw_line(Vector2(640.0 + (foot_x - 640.0) * 0.32, 476), Vector2(foot_x, 720), Color("#4b4d4c"), 1.0)
+    draw_rect(Rect2(0, 470, 1280, 6), Color("#171b1d"))
+    # Sombras de contacto para anclar los luchadores al suelo.
+    for fighter in [hacker, chico]:
+        var shadow_x: float = fighter.position.x
+        draw_colored_polygon(PackedVector2Array([Vector2(shadow_x - 54, 486), Vector2(shadow_x + 54, 486), Vector2(shadow_x + 94, 505), Vector2(shadow_x - 94, 505)]), Color(0, 0, 0, 0.32))
     _draw_fighter(hacker, Color(0.88, 0.88, 0.88))
     _draw_fighter(chico, Color(0.55, 0.55, 0.55))
     if hit_effect_time > 0.0:
