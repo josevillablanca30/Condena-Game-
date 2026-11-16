@@ -45,6 +45,9 @@ func _draw() -> void:
 
 func _draw_fighter(fighter: CondenaFighter, tint: Color) -> void:
     var p := fighter.position
+    if fighter.knockdown_time > 0.0 and not fighter.dead:
+        draw_rect(Rect2(p.x - 44, p.y + 26, 88, 20), tint)
+        return
     if fighter.dead:
         draw_rect(Rect2(p.x - 48, p.y + 35, 96, 22), tint)
         return
