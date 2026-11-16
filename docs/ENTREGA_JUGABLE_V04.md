@@ -23,6 +23,12 @@
 - Antes de comenzar: CAMBIAR TÉCNICAS e INICIAR COMBATE
 - Al terminar: REPETIR COMBATE
 
+### Duelo local de dos jugadores (experimental)
+- Antes de iniciar, pulsar **RIVAL: IA (CAMBIAR)** para activar **RIVAL: JUGADOR 2**.
+- P1: A/D para desplazarse; J/K/L ataques; F parada; E amague; ESPACIO esquiva; SHIFT bloqueo.
+- P2: flechas para desplazarse; 1/2/3 ataques; 4 esquiva; 5 parada; 6 amague; 0 bloqueo.
+- Es prueba local en un mismo computador: **NO es PvP online**, no sincroniza por red ni admite dos teléfonos.
+
 ### Escritorio para pruebas
 - A/D o flechas: caminar
 - J: ligera; K: fuerte; L: agarre
@@ -40,7 +46,7 @@
 
 ## Límites y riesgos
 - Código guardado, pero aún NO se verificó un run de Godot/Android exitoso en esta sesión.
-- No hay networking PvP, rollback, replay determinista ni espectadores conectados; solo un registro local de eventos.
+- Existe duelo local experimental de dos jugadores en un teclado, pero NO hay networking PvP, rollback, replay determinista ni espectadores conectados; solo un registro local de eventos.
 - Animaciones vectoriales provisionales, sin personajes finales, efectos de sonido ni hitboxes por fotograma.
 - Balance 120/115 HP provisional, sujeto a pruebas.
 - No se activaron anuncios, compras, cobros, servicios de pago ni generaciones con créditos.
