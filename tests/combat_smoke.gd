@@ -96,6 +96,7 @@ func _run() -> void:
     await create_timer(0.25).timeout
     hacker.stamina = hacker.max_stamina
     hacker.equip_move("grapple", "takedown")
+    chico.position.x = hacker.position.x + 61.0
     hacker.grab_attack()
     await create_timer(0.55).timeout
     if chico.knockdown_time <= 0.0:
