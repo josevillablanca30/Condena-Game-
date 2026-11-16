@@ -10,6 +10,10 @@ var health_label: Label
 var status_label: Label
 var loadout_label: Label
 var technique_buttons: Dictionary = {}
+var match_started := false
+var combat_ai: AIElChico
+var start_button: Button
+var loadout_button: Button
 var hit_effect_time := 0.0
 var hit_effect_position := Vector2.ZERO
 var hit_effect_label := ""
@@ -28,24 +32,25 @@ func _ready() -> void:
     chico.confirmed_hit.connect(_on_confirmed_hit)
     _build_ui()
     _refresh_loadout_label()
-    var ai := AIElChico.new()
-    ai.fighter = chico
-    ai.target = hacker
-    add_child(ai)
+    combat_ai = AIElChico.new()
+    combat_ai.fighter = chico
+    combat_ai.target = hacker
+    add_child(combat_ai)
+    combat_ai.set_physics_process(false)
     queue_redraw()
 
 func _process(delta: float) -> void:
     hit_effect_time = maxf(0.0, hit_effect_time - delta)
     if match_over:
         return
-    hacker.set_direction(movement)
+    hacker.set_direction(movement if match_started else 0.0)
     # La IA ahora se ejecuta desde AIElChico, sin duplicar ataques.
     health_label.text = "HACKER  %d HP | %d RES.            EL CHICO  %d HP" % [int(hacker.health), int(hacker.stamina), int(chico.health)]
     for slot in technique_buttons:
         var button: Button = technique_buttons[slot]
         var move_id: String = str(hacker.equipped_moves[slot])
         var cost: float = float(CondenaFighter.MOVE_DATA[move_id]["cost"])
-        button.disabled = match_over or hacker.dead or hacker.busy or hacker.stamina < cost
+        button.disabled = not match_started or match_over or hacker.dead or hacker.busy or hacker.stamina < cost
     queue_redraw()
 
 func _draw() -> void:
@@ -97,6 +102,8 @@ func _build_ui() -> void:
     ui.add_child(status_label)
     _button(ui, "◀", Vector2(38, 570), Vector2(92, 100), func(): movement = -1.0, func(): movement = 0.0)
     _button(ui, "▶", Vector2(143, 570), Vector2(92, 100), func(): movement = 1.0, func(): movement = 0.0)
+    start_button = _button(ui, "INICIAR COMBATE", Vector2(460, 345), Vector2(360, 75), func(): _start_combat())
+    start_button.add_theme_font_size_override("font_size", 25)
     technique_buttons["light"] = _button(ui, "JAB", Vector2(875, 590), Vector2(110, 70), func(): hacker.quick_attack())
     technique_buttons["heavy"] = _button(ui, "CROSS", Vector2(995, 510), Vector2(110, 70), func(): hacker.heavy_attack())
     _button(ui, "ESQUIVA", Vector2(1120, 590), Vector2(120, 70), func(): hacker.dodge())
@@ -105,11 +112,19 @@ func _build_ui() -> void:
     loadout_label.position = Vector2(300, 535)
     loadout_label.add_theme_font_size_override("font_size", 17)
     ui.add_child(loadout_label)
-    _button(ui, "CAMBIAR TÉCNICAS", Vector2(300, 585), Vector2(290, 65), func(): _cycle_loadout())
+    loadout_button = _button(ui, "CAMBIAR TÉCNICAS", Vector2(300, 585), Vector2(290, 65), func(): _cycle_loadout())
     _button(ui, "BLOQUEO", Vector2(745, 510), Vector2(120, 70), func(): hacker.set_block(true), func(): hacker.set_block(false))
 
+func _start_combat() -> void:
+    if match_started or match_over:
+        return
+    match_started = true
+    start_button.hide()
+    loadout_button.hide()
+    combat_ai.set_physics_process(true)
+
 func _cycle_loadout() -> void:
-    if match_over or hacker.busy:
+    if match_started or match_over or hacker.busy:
         return
     var alternate := hacker.equipped_moves["light"] == "jab"
     hacker.equip_move("light", "low_kick" if alternate else "jab")
@@ -138,6 +153,7 @@ func _button(parent: Control, caption: String, pos: Vector2, size: Vector2, pres
 
 func _finish(won: bool) -> void:
     match_over = true
+    combat_ai.set_physics_process(false)
     hacker.set_direction(0.0)
     chico.set_direction(0.0)
     status_label.text = "GANASTE" if won else "PERDISTE"
