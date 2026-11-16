@@ -21,6 +21,19 @@ var combat_feed: Array[String] = []
 var feed_label: Label
 var combo_label: Label
 const MOVE_LABELS := {"jab": "JAB", "low_kick": "PATADA BAJA", "cross": "CROSS", "elbow": "CODAZO", "clinch": "CLINCH", "takedown": "DERRIBO"}
+const EVENT_LABELS := {
+    "feint": "AMAGUE",
+    "attack_started": "ATAQUE",
+    "hit_confirmed": "IMPACTO",
+    "combo_hit": "COMBO",
+    "attack_whiffed": "FALLÓ",
+    "blocked_attack": "BLOQUEADO",
+    "guarded": "DEFENSA",
+    "guard_broken": "GUARDIA ROTA",
+    "perfect_dodge": "ESQUIVA PERFECTA",
+    "counter_hit": "CONTRAATAQUE",
+    "dodge_recovery": "FIN DE ESQUIVA"
+}
 
 func _ready() -> void:
     hacker.opponent = chico
@@ -77,7 +90,8 @@ func _update_combo(hits: int) -> void:
         combo_label.text = "COMBO x%d" % hits if hits >= 2 else ""
 
 func _record_event(actor: String, event_name: String, move_id: String) -> void:
-    var entry := "%s: %s %s" % [actor, event_name, move_id]
+    var technique := str(MOVE_LABELS.get(move_id, move_id))
+    var entry := "%s: %s %s" % [actor, str(EVENT_LABELS.get(event_name, event_name)), technique]
     combat_feed.push_front(entry)
     if combat_feed.size() > 4:
         combat_feed.pop_back()
@@ -97,12 +111,32 @@ func _draw_fighter(fighter: CondenaFighter, tint: Color) -> void:
     if fighter.dead:
         draw_rect(Rect2(p.x - 48, p.y + 35, 96, 22), tint)
         return
+
+    # Silueta legible en movimiento: guardia alta, amague y golpe son distinguibles.
+    var forward := fighter.facing
+    var reach_pose := 0.0
+    if fighter.busy and fighter.attack_kind != "":
+        reach_pose = 46.0 if fighter.attack_kind == "heavy" else 30.0
+    elif fighter.feint_window > 0.0:
+        reach_pose = 23.0
+    if fighter.invulnerable:
+        draw_arc(p + Vector2(0, -40), 75.0, 0.0, TAU, 24, Color(0.8, 0.8, 0.8, 0.5), 2.0)
+    if fighter.counter_window > 0.0:
+        draw_arc(p + Vector2(0, -43), 67.0, -PI * 0.7, PI * 0.2, 22, Color(1.0, 0.9, 0.65), 3.0)
+
     draw_circle(p + Vector2(0, -100), 26, tint)
     draw_rect(Rect2(p.x - 28, p.y - 72, 56, 100), tint)
     draw_line(p + Vector2(-15, 25), p + Vector2(-25, 62), tint, 15)
     draw_line(p + Vector2(15, 25), p + Vector2(25, 62), tint, 15)
-    draw_line(p + Vector2(-25, -55), p + Vector2(-48, -2), tint, 12)
-    draw_line(p + Vector2(25, -55), p + Vector2(48, -2), tint, 12)
+    if fighter.blocking:
+        draw_line(p + Vector2(-22, -55), p + Vector2(-13, -110), tint, 12)
+        draw_line(p + Vector2(22, -55), p + Vector2(13, -110), tint, 12)
+    else:
+        var shoulder := p + Vector2(forward * 23.0, -52)
+        var fist := p + Vector2(forward * (48.0 + reach_pose), -54)
+        draw_line(shoulder, fist, tint, 13)
+        draw_circle(fist, 8.0, tint)
+        draw_line(p + Vector2(-forward * 23.0, -53), p + Vector2(-forward * 42.0, -12), tint, 12)
 
 func _build_ui() -> void:
     var layer := CanvasLayer.new()
