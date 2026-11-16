@@ -29,6 +29,7 @@ var attack_kind := ""
 const BODY_HALF_WIDTH := 27.0
 const MIN_BODY_GAP := BODY_HALF_WIDTH * 2.0
 var facing := 1.0
+var dodge_velocity := 0.0
 signal confirmed_hit(move_id: String, target: CondenaFighter)
 # Repertorio configurable: las técnicas comparten ranuras y tienen costes propios.
 var equipped_moves: Dictionary = {"light": "jab", "heavy": "cross", "grapple": "clinch"}
@@ -81,7 +82,7 @@ func _physics_process(delta: float) -> void:
     stamina_changed.emit(stamina)
     if opponent != null and not opponent.dead:
         facing = signf(opponent.position.x - position.x) if absf(opponent.position.x - position.x) > 1.0 else facing
-    velocity = Vector2(direction * move_speed * (0.65 if leg_slow_time > 0.0 else 1.0) if not busy and not blocking and stun_time <= 0.0 and knockdown_time <= 0.0 else 0.0, 0.0)
+    velocity = Vector2(dodge_velocity if invulnerable else direction * move_speed * (0.65 if leg_slow_time > 0.0 else 1.0) if not busy and not blocking and stun_time <= 0.0 and knockdown_time <= 0.0 else 0.0, 0.0)
     move_and_slide()
     position.x = clampf(position.x, 95.0, 1185.0)
 
@@ -105,19 +106,12 @@ func dodge() -> void:
     stamina -= 18.0
     busy = true
     invulnerable = true
-    var start_x := position.x
     var away := -1.0 if opponent != null and opponent.position.x > position.x else 1.0
-    # La esquiva usa movimiento físico para respetar las colisiones.
-    var elapsed := 0.0
-    while elapsed < 0.20 and is_inside_tree() and not dead:
-        var step := get_physics_process_delta_time()
-        velocity = Vector2(away * 525.0, 0.0)
-        move_and_slide()
-        position.x = clampf(position.x, 95.0, 1185.0)
-        elapsed += step
-        await get_tree().physics_frame
+    dodge_velocity = away * 525.0
+    await get_tree().create_timer(0.2).timeout
     if is_inside_tree():
         invulnerable = false
+        dodge_velocity = 0.0
         busy = false
 
 func grab_attack() -> void:
