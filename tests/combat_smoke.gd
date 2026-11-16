@@ -38,6 +38,24 @@ func _run() -> void:
         _fail("La pelea empieza sin salud")
         return
 
+    # Android: dos dedos independientes, movimiento + bloqueo.
+    arena.call("_begin_mobile_touch", 1, Vector2(70, 610))
+    if arena.get("movement") != -1.0:
+        _fail("El control tactil izquierdo no mueve al jugador")
+        return
+    arena.call("_begin_mobile_touch", 2, Vector2(780, 540))
+    if not hacker.blocking or arena.get("movement") != -1.0:
+        _fail("No se puede bloquear mientras se mantiene movimiento")
+        return
+    arena.call("_end_mobile_touch", 2)
+    if hacker.blocking or arena.get("movement") != -1.0:
+        _fail("Al soltar defensa se pierde el movimiento activo")
+        return
+    arena.call("_end_mobile_touch", 1)
+    if arena.get("movement") != 0.0:
+        _fail("El movimiento queda pegado al soltar el dedo")
+        return
+
     hacker.position.x = 500.0
     chico.position.x = 585.0
     var health_before: float = chico.health
