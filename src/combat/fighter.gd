@@ -76,7 +76,7 @@ func set_direction(value: float) -> void:
 func set_block(value: bool) -> void:
     if dead:
         return
-    blocking = value and not busy
+    blocking = value and not busy and knockdown_time <= 0.0 and stun_time <= 0.0
 
 func quick_attack() -> void:
     use_move("light")
