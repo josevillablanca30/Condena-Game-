@@ -213,7 +213,8 @@ func _attack(move_id: String, cost: float, damage: float, reach: float, duration
         var relative_x := (opponent.position.x - position.x) * locked_facing
         var contact := relative_x >= BODY_HALF_WIDTH and relative_x - BODY_HALF_WIDTH <= reach
         if contact and not opponent.invulnerable:
-            var result: String = opponent.receive_hit(damage * combo_damage_scale * (1.2 if counter_armed and not guarded_hit else 1.0), kind, move_id)
+            var guard_expected := opponent.blocking and kind != "grab"
+            var result: String = opponent.receive_hit(damage * combo_damage_scale * (1.2 if counter_armed and not guard_expected else 1.0), kind, move_id)
             if result == "parried":
                 combo_hits = 0
                 combo_window = 0.0
@@ -264,6 +265,9 @@ func receive_hit(damage: float, kind: String = "quick", move_id: String = "") ->
         parry_window = 0.0
         attack_serial += 1
         busy = false
+        attack_kind = ""
+        active_move_id = ""
+        attack_pose_time = 0.0
         counter_window = maxf(counter_window, 0.90)
         combat_event.emit("perfect_parry", move_id)
         last_hit_result = "parried"
