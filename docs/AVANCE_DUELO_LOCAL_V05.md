@@ -28,3 +28,13 @@ Revisar CI y resolver errores; animaciones de golpes por estados y hitboxes prec
 
 ## Costos
 Todo implementado sin gastar créditos de generación ni ejecutar compras.
+
+## Continuación — feedback de combate y registro local
+- Animación procedural con fases de preparación, extensión y recuperación del golpe.
+- Poses específicas para patada baja y derribo; desplazamiento de piernas durante caminata.
+- Reacción de retroceso visual cuando un personaje recibe daño.
+- Impulso breve de cámara al conectar, más fuerte en cross y derribo.
+- Al terminar, guarda `user://condena_last_match.json` con ganador, duración, modo, estadísticas y eventos.
+- El archivo es **local**: no se transmite a servidores ni es todavía una repetición visual.
+- Smoke test ampliado para patada baja, derribo, historial y persistencia JSON.
+- **Estado:** cambios subidos al repositorio, sin ejecución Godot verificada en este entorno.
