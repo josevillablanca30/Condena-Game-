@@ -37,7 +37,10 @@ const EVENT_LABELS := {
     "guard_broken": "GUARDIA ROTA",
     "perfect_dodge": "ESQUIVA PERFECTA",
     "counter_hit": "CONTRAATAQUE",
-    "dodge_recovery": "FIN DE ESQUIVA"
+    "dodge_recovery": "FIN DE ESQUIVA",
+    "parry_attempt": "INTENTO DE PARADA",
+    "perfect_parry": "PARADA PERFECTA",
+    "attack_parried": "GOLPE CONTRARRESTADO"
 }
 
 func _ready() -> void:
@@ -134,6 +137,8 @@ func _draw_fighter(fighter: CondenaFighter, tint: Color) -> void:
         reach_pose = 23.0
     if fighter.invulnerable:
         draw_arc(p + Vector2(0, -40), 75.0, 0.0, TAU, 24, Color(0.8, 0.8, 0.8, 0.5), 2.0)
+    if fighter.parry_window > 0.0:
+        draw_arc(p + Vector2(0, -70), 66.0, -PI * 0.8, PI * 0.4, 24, Color(1.0, 1.0, 1.0, 0.9), 5.0)
     if fighter.counter_window > 0.0:
         draw_arc(p + Vector2(0, -43), 67.0, -PI * 0.7, PI * 0.2, 22, Color(1.0, 0.9, 0.65), 3.0)
 
@@ -197,7 +202,12 @@ func _build_ui() -> void:
     ui.add_child(loadout_label)
     loadout_button = _button(ui, "CAMBIAR TÉCNICAS", Vector2(300, 585), Vector2(290, 65), func(): _cycle_loadout())
     _button(ui, "AMAGUE", Vector2(500, 500), Vector2(115, 65), func(): _try_feint())
+    _button(ui, "PARADA", Vector2(875, 505), Vector2(110, 70), func(): _try_parry())
     _button(ui, "BLOQUEO", Vector2(745, 510), Vector2(120, 70), func(): hacker.set_block(true), func(): hacker.set_block(false))
+
+func _try_parry() -> void:
+    if match_started and not match_over:
+        hacker.parry()
 
 func _try_feint() -> void:
     if match_started and not match_over:
