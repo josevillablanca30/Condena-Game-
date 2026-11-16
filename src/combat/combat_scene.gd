@@ -35,6 +35,10 @@ var action_buttons: Array[Button] = []
 var broadcast_view := false
 var local_duel := false
 var duel_mode_button: Button
+var camera_impact := 0.0
+var camera_impact_strength := 0.0
+var impact_direction := 1.0
+var match_export_path := ""
 const MOVE_LABELS := {"jab": "JAB", "low_kick": "PATADA BAJA", "cross": "CROSS", "elbow": "CODAZO", "clinch": "CLINCH", "takedown": "DERRIBO"}
 const EVENT_LABELS := {
     "feint": "AMAGUE",
@@ -79,6 +83,7 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
     hit_effect_time = maxf(0.0, hit_effect_time - delta)
+    camera_impact = maxf(0.0, camera_impact - delta)
     if match_started and not match_over:
         elapsed_seconds += delta
         timer_label.text = "%02d:%02d" % [int(elapsed_seconds / 60.0), int(elapsed_seconds) % 60]
@@ -115,6 +120,8 @@ func _process(delta: float) -> void:
     queue_redraw()
 
 func _draw() -> void:
+    var camera_shift := Vector2(impact_direction * camera_impact_strength * camera_impact / 0.15, 0.0)
+    draw_set_transform(camera_shift)
     # Patio de la carcel: arte procedural original sin assets ni creditos externos.
     draw_rect(Rect2(0, 0, 1280, 720), Color(0.075, 0.075, 0.075))
     draw_rect(Rect2(0, 0, 1280, 475), Color(0.13, 0.13, 0.13))
@@ -145,6 +152,7 @@ func _draw() -> void:
         var strength := hit_effect_time / 0.18
         draw_arc(hit_effect_position, 24.0 + (1.0 - strength) * 18.0, 0.0, TAU, 20, Color(1.0, 0.94, 0.75, strength), 4.0)
         draw_line(hit_effect_position + Vector2(-32, -25), hit_effect_position + Vector2(32, 25), Color(1.0, 1.0, 1.0, strength), 3.0)
+    draw_set_transform(Vector2.ZERO)
 
 func _update_combo(hits: int) -> void:
     if combo_label != null:
@@ -177,6 +185,9 @@ func _on_confirmed_hit(move_id: String, target: CondenaFighter) -> void:
     hit_effect_position = target.position + Vector2(0, -48)
     hit_effect_time = 0.18
     hit_effect_label = move_id
+    camera_impact = 0.15
+    camera_impact_strength = 10.0 if move_id == "cross" or move_id == "takedown" else 5.0
+    impact_direction = target.facing
 
 func _draw_fighter(fighter: CondenaFighter, tint: Color) -> void:
     var p := fighter.position
@@ -423,3 +434,24 @@ func _finish(won: bool) -> void:
     status_label.text += "\n%s: %d impactos · %d combos · %d esquivas · %d paradas · %d contras" % [winner, int(stats["hits"]), int(stats["combos"]), int(stats["dodges"]), int(stats["parries"]), int(stats["counters"])]
     restart_button.show()
     broadcast_view = false
+    _save_match_record(winner)
+
+
+func _save_match_record(winner: String) -> void:
+    # Solo se guarda un JSON local, sin red, cuentas ni analitica remota.
+    var record := {
+        "schema_version": 1,
+        "game": "CONDENA",
+        "winner": winner,
+        "duration_seconds": snappedf(elapsed_seconds, 0.01),
+        "mode": "local_duel" if local_duel else "vs_ai",
+        "stats": fighter_stats,
+        "events": event_history
+    }
+    var file := FileAccess.open("user://condena_last_match.json", FileAccess.WRITE)
+    if file == null:
+        push_warning("No se pudo guardar el registro local del combate")
+        return
+    file.store_string(JSON.stringify(record, "\t"))
+    file.close()
+    match_export_path = ProjectSettings.globalize_path("user://condena_last_match.json")
