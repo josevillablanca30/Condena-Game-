@@ -60,14 +60,14 @@ func _run() -> void:
         _fail("El amague infligio daño")
         return
 
-    await create_timer(0.20).timeout
+    await create_timer(0.40).timeout
     var parry_health: float = hacker.health
     hacker.parry()
     var parry_result: String = hacker.receive_hit(15.0, "heavy", "cross")
     if parry_result != "parried" or hacker.health != parry_health or hacker.counter_window <= 0.0:
         _fail("La parada perfecta no nego daño o no habilito contraataque")
         return
-    await create_timer(0.40).timeout
+    await create_timer(0.50).timeout
     var grab_health: float = hacker.health
     hacker.parry()
     var grab_result: String = hacker.receive_hit(8.0, "grab", "clinch")
