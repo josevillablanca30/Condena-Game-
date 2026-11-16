@@ -19,6 +19,7 @@ var hit_effect_position := Vector2.ZERO
 var hit_effect_label := ""
 var combat_feed: Array[String] = []
 var feed_label: Label
+var combo_label: Label
 const MOVE_LABELS := {"jab": "JAB", "low_kick": "PATADA BAJA", "cross": "CROSS", "elbow": "CODAZO", "clinch": "CLINCH", "takedown": "DERRIBO"}
 
 func _ready() -> void:
@@ -34,6 +35,7 @@ func _ready() -> void:
     chico.confirmed_hit.connect(_on_confirmed_hit)
     hacker.combat_event.connect(func(event_name: String, move_id: String): _record_event("HACKER", event_name, move_id))
     chico.combat_event.connect(func(event_name: String, move_id: String): _record_event("EL CHICO", event_name, move_id))
+    hacker.combo_changed.connect(_update_combo)
     _build_ui()
     _refresh_loadout_label()
     combat_ai = AIElChico.new()
@@ -68,6 +70,10 @@ func _draw() -> void:
         var strength := hit_effect_time / 0.18
         draw_arc(hit_effect_position, 24.0 + (1.0 - strength) * 18.0, 0.0, TAU, 20, Color(1.0, 0.94, 0.75, strength), 4.0)
         draw_line(hit_effect_position + Vector2(-32, -25), hit_effect_position + Vector2(32, 25), Color(1.0, 1.0, 1.0, strength), 3.0)
+
+func _update_combo(hits: int) -> void:
+    if combo_label != null:
+        combo_label.text = "COMBO x%d" % hits if hits >= 2 else ""
 
 func _record_event(actor: String, event_name: String, move_id: String) -> void:
     var entry := "%s: %s %s" % [actor, event_name, move_id]
@@ -116,6 +122,10 @@ func _build_ui() -> void:
     feed_label.position = Vector2(38, 85)
     feed_label.add_theme_font_size_override("font_size", 15)
     ui.add_child(feed_label)
+    combo_label = Label.new()
+    combo_label.position = Vector2(520, 170)
+    combo_label.add_theme_font_size_override("font_size", 34)
+    ui.add_child(combo_label)
     _button(ui, "◀", Vector2(38, 570), Vector2(92, 100), func(): movement = -1.0, func(): movement = 0.0)
     _button(ui, "▶", Vector2(143, 570), Vector2(92, 100), func(): movement = 1.0, func(): movement = 0.0)
     start_button = _button(ui, "INICIAR COMBATE", Vector2(460, 345), Vector2(360, 75), func(): _start_combat())
