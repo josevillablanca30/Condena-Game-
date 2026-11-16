@@ -41,6 +41,9 @@ var camera_impact_strength := 0.0
 var impact_direction := 1.0
 var match_export_path := ""
 var match_result := ""
+var campaign_bridge: CampaignBridge
+var campaign_mode := false
+var campaign_button: Button
 var mobile_touch_actions: Dictionary = {}
 var mobile_movement_touches: Dictionary = {}
 var mobile_guard_touches: Dictionary = {}
@@ -77,6 +80,8 @@ func _ready() -> void:
     hacker.combat_event.connect(func(event_name: String, move_id: String): _record_event("HACKER", event_name, move_id))
     chico.combat_event.connect(func(event_name: String, move_id: String): _record_event("EL CHICO", event_name, move_id))
     hacker.combo_changed.connect(_update_combo)
+    campaign_bridge = CampaignBridge.new()
+    add_child(campaign_bridge)
     _build_ui()
     _refresh_loadout_label()
     combat_ai = AIElChico.new()
@@ -449,6 +454,7 @@ func _build_ui() -> void:
     start_button = _button(ui, "INICIAR COMBATE", Vector2(460, 345), Vector2(360, 75), func(): _start_combat())
     start_button.add_theme_font_size_override("font_size", 25)
     duel_mode_button = _button(ui, "RIVAL: IA (CAMBIAR)", Vector2(460, 430), Vector2(360, 60), func(): _toggle_duel_mode())
+    campaign_button = _button(ui, "CAMPAÑA: DESACTIVADA", Vector2(460, 500), Vector2(360, 55), func(): _toggle_campaign())
     restart_button = _button(ui, "REPETIR COMBATE", Vector2(460, 350), Vector2(360, 75), func(): get_tree().reload_current_scene())
     restart_button.hide()
     technique_buttons["light"] = _button(ui, "JAB", Vector2(875, 590), Vector2(110, 70), func(): hacker.quick_attack())
@@ -519,10 +525,24 @@ func _unhandled_key_input(event: InputEvent) -> void:
         KEY_E:
             hacker.feint()
 
+func _toggle_campaign() -> void:
+    if match_started or match_over:
+        return
+    campaign_mode = not campaign_mode
+    if campaign_mode:
+        local_duel = false
+        duel_mode_button.text = "RIVAL: IA"
+    campaign_button.text = "CAMPAÑA: ACTIVADA" if campaign_mode else "CAMPAÑA: DESACTIVADA"
+    var status := campaign_bridge.current_status()
+    tutorial_label.text = "Capítulo 1 — escena %d/9. Las escenas narrativas aún están pendientes." % (int(status["scene"]) + 1) if campaign_mode else "Lee al rival: bloqueo pierde ante agarre; parada pierde ante agarre."
+
 func _toggle_duel_mode() -> void:
     if match_started or match_over:
         return
     local_duel = not local_duel
+    if local_duel and campaign_mode:
+        campaign_mode = false
+        campaign_button.text = "CAMPAÑA: DESACTIVADA"
     duel_mode_button.text = "RIVAL: JUGADOR 2" if local_duel else "RIVAL: IA (CAMBIAR)"
     tutorial_label.text = "DUELO LOCAL: P1 A/D + J/K/L + F/E/ESPACIO; P2 FLECHAS + 1/2/3 + 4/5/6" if local_duel else "Lee al rival: bloqueo pierde ante agarre; parada pierde ante agarre.\nAmaga para provocar errores y castiga las esquivas."
 
@@ -544,11 +564,19 @@ func _try_feint() -> void:
 func _start_combat() -> void:
     if match_started or match_over:
         return
+    if campaign_mode:
+        if not campaign_bridge.start_current_fight(hacker, chico):
+            status_label.text = "Completa las escenas narrativas antes del siguiente combate."
+            return
+        enemy_label.text = chico.fighter_name
+        enemy_health_bar.max_value = chico.max_health
+        enemy_health_bar.value = chico.health
     match_started = true
     start_button.hide()
     loadout_button.hide()
     loadout_label.hide()
     duel_mode_button.hide()
+    campaign_button.hide()
     tutorial_label.hide()
     combat_ai.set_physics_process(not local_duel)
 
@@ -664,6 +692,10 @@ func _finish_match(winner: String, result_title: String) -> void:
     restart_button.show()
     broadcast_view = false
     _save_match_record(winner)
+    if campaign_mode and winner != "EMPATE":
+        var progressed := campaign_bridge.submit_combat_result(winner == "HACKER")
+        if progressed:
+            status_label.text += "\nProgreso de campaña guardado."
 
 
 func _save_match_record(winner: String) -> void:
