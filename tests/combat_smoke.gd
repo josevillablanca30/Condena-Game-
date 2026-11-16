@@ -115,6 +115,11 @@ func _run() -> void:
         return
 
     arena.call("_finish", true)
+    var saved_event_count := arena.get("event_history").size()
+    arena.call("_finish", false)
+    if arena.get("match_result") != "HACKER" or arena.get("event_history").size() != saved_event_count:
+        _fail("El resultado cambio al intentar finalizar dos veces")
+        return
     if not arena.get("match_over"):
         _fail("El combate no finalizo")
         return
@@ -131,5 +136,12 @@ func _run() -> void:
         _fail("El registro JSON no contiene el ganador esperado")
         return
 
-    print("CONDENA SMOKE OK: 1v1 local, combos, defensas, tecnicas, eventos y registro JSON")
+    var draw_arena: Node2D = packed.instantiate()
+    root.add_child(draw_arena)
+    await process_frame
+    draw_arena.call("_finish_draw")
+    if draw_arena.get("match_result") != "EMPATE":
+        _fail("El empate no se registra correctamente")
+        return
+    print("CONDENA SMOKE OK: 1v1, combos, tecnicas, registro JSON, cierre unico y empate")
     quit(0)
