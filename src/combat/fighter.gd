@@ -37,6 +37,9 @@ var combo_window := 0.0
 var counter_window := 0.0
 var parry_window := 0.0
 var parry_recovery := 0.0
+var hit_reaction_time := 0.0
+var attack_pose_time := 0.0
+var active_move_id := ""
 signal combo_changed(hits: int)
 signal confirmed_hit(move_id: String, target: CondenaFighter)
 signal combat_event(event_name: String, move_id: String)
@@ -92,6 +95,8 @@ func _physics_process(delta: float) -> void:
     counter_window = maxf(0.0, counter_window - delta)
     parry_window = maxf(0.0, parry_window - delta)
     parry_recovery = maxf(0.0, parry_recovery - delta)
+    hit_reaction_time = maxf(0.0, hit_reaction_time - delta)
+    attack_pose_time = maxf(0.0, attack_pose_time - delta)
     if combo_window <= 0.0 and combo_hits > 0:
         combo_hits = 0
         combo_changed.emit(0)
@@ -187,6 +192,8 @@ func _attack(move_id: String, cost: float, damage: float, reach: float, duration
     busy = true
     attack_serial += 1
     attack_kind = kind
+    active_move_id = move_id
+    attack_pose_time = duration
     var counter_armed := counter_window > 0.0
     counter_window = 0.0
     combat_event.emit("attack_started", move_id)
@@ -213,6 +220,8 @@ func _attack(move_id: String, cost: float, damage: float, reach: float, duration
                 attack_serial += 1
                 busy = false
                 attack_kind = ""
+                active_move_id = ""
+                attack_pose_time = 0.0
                 recovery_time = maxf(recovery_time, 0.38)
                 combat_event.emit("attack_parried", move_id)
                 return
@@ -241,6 +250,8 @@ func _attack(move_id: String, cost: float, damage: float, reach: float, duration
     if is_inside_tree() and serial == attack_serial:
         busy = false
         attack_kind = ""
+        active_move_id = ""
+        attack_pose_time = 0.0
         recovery_time = 0.10 if kind == "quick" else 0.20
 
 func receive_hit(damage: float, kind: String = "quick", move_id: String = "") -> String:
@@ -253,6 +264,7 @@ func receive_hit(damage: float, kind: String = "quick", move_id: String = "") ->
         counter_window = maxf(counter_window, 0.90)
         combat_event.emit("perfect_parry", move_id)
         return "parried"
+    hit_reaction_time = 0.24
     # La guardia absorbe daño pero no es universal: los agarres la superan.
     var was_blocking := blocking
     var guard_broken := false
@@ -278,6 +290,8 @@ func receive_hit(damage: float, kind: String = "quick", move_id: String = "") ->
         attack_serial += 1
         busy = false
         attack_kind = ""
+        active_move_id = ""
+        attack_pose_time = 0.0
         recovery_time = maxf(recovery_time, 0.18)
     var guarded := was_blocking and not guard_broken and kind != "grab"
     if guarded:
