@@ -44,7 +44,6 @@ var match_result := ""
 var mobile_touch_actions: Dictionary = {}
 var mobile_movement_touches: Dictionary = {}
 var mobile_guard_touches: Dictionary = {}
-var mobile_button_regions: Array[Dictionary] = []
 const MOVE_LABELS := {"jab": "JAB", "low_kick": "PATADA BAJA", "cross": "CROSS", "elbow": "CODAZO", "clinch": "CLINCH", "takedown": "DERRIBO"}
 const EVENT_LABELS := {
     "feint": "AMAGUE",
