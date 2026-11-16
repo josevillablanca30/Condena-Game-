@@ -32,8 +32,14 @@ func _physics_process(delta: float) -> void:
         if target.blocking and gap <= 75.0 and fighter.stamina >= 25.0:
             fighter.grab_attack()
             cooldown = 1.15
-        elif target.busy and randf() < 0.35:
-            guard_time = randf_range(0.25, 0.55)
+        elif target.busy and target.attack_kind != "" and gap <= 110.0:
+            # Decision probabilistica y con enfriamiento: no lee golpes futuros.
+            var defensive_roll := randf()
+            if defensive_roll < 0.24 and fighter.stamina >= 38.0:
+                fighter.dodge()
+                cooldown = 0.75
+            elif defensive_roll < 0.62:
+                guard_time = randf_range(0.20, 0.42)
         elif cooldown <= 0.0 and gap <= 110.0:
             if fighter.stamina >= 28.0 and randf() < 0.35:
                 fighter.heavy_attack()
