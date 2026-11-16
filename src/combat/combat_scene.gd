@@ -191,6 +191,8 @@ func _on_confirmed_hit(move_id: String, target: CondenaFighter) -> void:
 
 func _draw_fighter(fighter: CondenaFighter, tint: Color) -> void:
     var p := fighter.position
+    var recoil := -fighter.facing * 12.0 * (fighter.hit_reaction_time / 0.24)
+    p.x += recoil
     if fighter.knockdown_time > 0.0 and not fighter.dead:
         draw_rect(Rect2(p.x - 44, p.y + 26, 88, 20), tint)
         return
@@ -201,10 +203,19 @@ func _draw_fighter(fighter: CondenaFighter, tint: Color) -> void:
     # Silueta legible en movimiento: guardia alta, amague y golpe son distinguibles.
     var forward := fighter.facing
     var reach_pose := 0.0
+    var kick_pose := fighter.active_move_id == "low_kick"
+    var takedown_pose := fighter.active_move_id == "takedown"
+    var animation_phase := 0.0
     if fighter.busy and fighter.attack_kind != "":
-        reach_pose = 46.0 if fighter.attack_kind == "heavy" else 30.0
+        var move_data: Dictionary = CondenaFighter.MOVE_DATA.get(fighter.active_move_id, {})
+        var duration := float(move_data.get("duration", 0.35))
+        animation_phase = clampf(1.0 - fighter.attack_pose_time / maxf(0.01, duration), 0.0, 1.0)
+        var extension := sin(animation_phase * PI)
+        reach_pose = (55.0 if fighter.attack_kind == "heavy" else 38.0) * extension
+        if fighter.attack_kind == "grab":
+            reach_pose = 18.0 * extension
     elif fighter.feint_window > 0.0:
-        reach_pose = 23.0
+        reach_pose = 23.0 * sin((1.0 - fighter.feint_window / 0.18) * PI)
     if fighter.invulnerable:
         draw_arc(p + Vector2(0, -40), 75.0, 0.0, TAU, 24, Color(0.8, 0.8, 0.8, 0.5), 2.0)
     if fighter.parry_window > 0.0:
@@ -214,8 +225,15 @@ func _draw_fighter(fighter: CondenaFighter, tint: Color) -> void:
 
     draw_circle(p + Vector2(0, -100), 26, tint)
     draw_rect(Rect2(p.x - 28, p.y - 72, 56, 100), tint)
-    draw_line(p + Vector2(-15, 25), p + Vector2(-25, 62), tint, 15)
-    draw_line(p + Vector2(15, 25), p + Vector2(25, 62), tint, 15)
+    var walking := absf(fighter.velocity.x) > 15.0
+    var step_phase := sin(Time.get_ticks_msec() * 0.015) * 12.0 if walking else 0.0
+    draw_line(p + Vector2(-15, 25), p + Vector2(-25 + step_phase, 62), tint, 15)
+    if kick_pose:
+        draw_line(p + Vector2(15, 25), p + Vector2(forward * (35.0 + reach_pose), 25.0), tint, 15)
+    elif takedown_pose:
+        draw_line(p + Vector2(15, 25), p + Vector2(forward * (25.0 + reach_pose), 53.0), tint, 15)
+    else:
+        draw_line(p + Vector2(15, 25), p + Vector2(25 - step_phase, 62), tint, 15)
     if fighter.blocking:
         draw_line(p + Vector2(-22, -55), p + Vector2(-13, -110), tint, 12)
         draw_line(p + Vector2(22, -55), p + Vector2(13, -110), tint, 12)
