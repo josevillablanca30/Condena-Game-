@@ -129,8 +129,12 @@ func _build_ui() -> void:
     loadout_label.add_theme_font_size_override("font_size", 17)
     ui.add_child(loadout_label)
     loadout_button = _button(ui, "CAMBIAR TÉCNICAS", Vector2(300, 585), Vector2(290, 65), func(): _cycle_loadout())
-    _button(ui, "AMAGUE", Vector2(500, 500), Vector2(115, 65), func(): if match_started and not match_over: hacker.feint())
+    _button(ui, "AMAGUE", Vector2(500, 500), Vector2(115, 65), func(): _try_feint())
     _button(ui, "BLOQUEO", Vector2(745, 510), Vector2(120, 70), func(): hacker.set_block(true), func(): hacker.set_block(false))
+
+func _try_feint() -> void:
+    if match_started and not match_over:
+        hacker.feint()
 
 func _start_combat() -> void:
     if match_started or match_over:
