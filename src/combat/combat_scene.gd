@@ -284,7 +284,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
     if key_event.keycode == KEY_V and match_started and not match_over:
         broadcast_view = not broadcast_view
         for action_button in action_buttons:
-            action_button.visible = not broadcast_view
+            if action_button != start_button and action_button != loadout_button and action_button != restart_button:
+                action_button.visible = not broadcast_view
         return
     if not match_started:
         if key_event.keycode == KEY_ENTER:
