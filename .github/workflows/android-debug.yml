@@ -38,14 +38,23 @@ jobs:
           EOF
           test -s "$HOME/.local/share/godot/export_templates/4.2.2.stable/android_debug.apk"
           test -s "$HOME/.android/debug.keystore"
+          echo "Java SDK: $JAVA_SDK"
+          echo "Android SDK: $ANDROID_HOME"
+          ls -lh "$HOME/.local/share/godot/export_templates/4.2.2.stable/"
       - name: Godot import
         run: godot --headless --path . --editor --import --quit
       - name: Combat smoke tests
         run: godot --headless --path . --script res://tests/combat_smoke.gd
+      - name: Inspect Android export configuration
+        run: |
+          set -eu
+          cat "$HOME/.config/godot/editor_settings-4.tres"
+          ls -la "$ANDROID_HOME/build-tools" || true
+          keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android
       - name: Export Android debug
         run: |
           mkdir -p build
-          godot --headless --path . --export-debug "Android Debug" build/CONDENA-debug.apk
+          godot --headless --verbose --path . --export-debug "Android Debug" build/CONDENA-debug.apk
           test -s build/CONDENA-debug.apk
       - name: Upload APK for phone testing
         uses: actions/upload-artifact@v4
