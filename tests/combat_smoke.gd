@@ -109,5 +109,19 @@ func _run() -> void:
         _fail("No se registraron suficientes eventos de combate")
         return
 
-    print("CONDENA SMOKE OK: escena, 1v1 local, golpes, combos, guardia, amague, parada, agarre, patada baja, derribo y eventos")
+    arena.call("_finish", true)
+    if not FileAccess.file_exists("user://condena_last_match.json"):
+        _fail("No se guardo el registro JSON local")
+        return
+    var record_file := FileAccess.open("user://condena_last_match.json", FileAccess.READ)
+    if record_file == null:
+        _fail("No se pudo leer el registro local")
+        return
+    var record: Variant = JSON.parse_string(record_file.get_as_text())
+    record_file.close()
+    if not record is Dictionary or record.get("winner", "") != "HACKER":
+        _fail("El registro JSON no contiene el ganador esperado")
+        return
+
+    print("CONDENA SMOKE OK: 1v1 local, combos, defensas, tecnicas, eventos y registro JSON")
     quit(0)
