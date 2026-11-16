@@ -268,7 +268,7 @@ func _build_ui() -> void:
     restart_button.hide()
     technique_buttons["light"] = _button(ui, "JAB", Vector2(875, 590), Vector2(110, 70), func(): hacker.quick_attack())
     technique_buttons["heavy"] = _button(ui, "CROSS", Vector2(995, 510), Vector2(110, 70), func(): hacker.heavy_attack())
-    _button(ui, "ESQUIVA", Vector2(1120, 590), Vector2(120, 70), func(): hacker.dodge())
+    _button(ui, "ESQUIVA", Vector2(1120, 590), Vector2(120, 70), func(): _try_dodge())
     technique_buttons["grapple"] = _button(ui, "CLINCH", Vector2(620, 590), Vector2(110, 70), func(): hacker.grab_attack())
     loadout_label = Label.new()
     loadout_label.position = Vector2(300, 535)
@@ -277,7 +277,7 @@ func _build_ui() -> void:
     loadout_button = _button(ui, "CAMBIAR TÉCNICAS", Vector2(300, 585), Vector2(290, 65), func(): _cycle_loadout())
     _button(ui, "AMAGUE", Vector2(500, 500), Vector2(115, 65), func(): _try_feint())
     _button(ui, "PARADA", Vector2(875, 505), Vector2(110, 70), func(): _try_parry())
-    _button(ui, "BLOQUEO", Vector2(745, 510), Vector2(120, 70), func(): hacker.set_block(true), func(): hacker.set_block(false))
+    _button(ui, "BLOQUEO", Vector2(745, 510), Vector2(120, 70), func(): _set_player_block(true), func(): _set_player_block(false))
 
 func _unhandled_key_input(event: InputEvent) -> void:
     if not event is InputEventKey:
@@ -340,6 +340,13 @@ func _toggle_duel_mode() -> void:
     local_duel = not local_duel
     duel_mode_button.text = "RIVAL: JUGADOR 2" if local_duel else "RIVAL: IA (CAMBIAR)"
     tutorial_label.text = "DUELO LOCAL: P1 A/D + J/K/L + F/E/ESPACIO; P2 FLECHAS + 1/2/3 + 4/5/6" if local_duel else "Lee al rival: bloqueo pierde ante agarre; parada pierde ante agarre.\nAmaga para provocar errores y castiga las esquivas."
+
+func _try_dodge() -> void:
+    if match_started and not match_over:
+        hacker.dodge()
+
+func _set_player_block(value: bool) -> void:
+    hacker.set_block(value and match_started and not match_over)
 
 func _try_parry() -> void:
     if match_started and not match_over:
