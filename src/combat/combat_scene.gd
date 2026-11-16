@@ -330,26 +330,75 @@ func _draw_fighter(fighter: CondenaFighter, tint: Color) -> void:
     if fighter.counter_window > 0.0:
         draw_arc(p + Vector2(0, -43), 67.0, -PI * 0.7, PI * 0.2, 22, Color(1.0, 0.9, 0.65), 3.0)
 
-    draw_circle(p + Vector2(0, -100), 26, tint)
-    draw_rect(Rect2(p.x - 28, p.y - 72, 56, 100), tint)
-    var walking := absf(fighter.velocity.x) > 15.0
-    var step_phase := sin(Time.get_ticks_msec() * 0.015) * 12.0 if walking else 0.0
-    draw_line(p + Vector2(-15, 25), p + Vector2(-25 + step_phase, 62), tint, 15)
+    # Personajes originales dibujados por capas: anatomia, ropa y expresiones.
+    var is_hacker := fighter == hacker
+    var skin := Color("#c5a28b") if is_hacker else Color("#927466")
+    var cloth := Color("#353d43") if is_hacker else Color("#656058")
+    var cloth_dark := Color("#1c2429") if is_hacker else Color("#34302e")
+    var ink := Color("#0a0b0e")
+    var accent := Color("#b8a489") if is_hacker else Color("#8c3c32")
+    var step_phase := sin(Time.get_ticks_msec() * 0.015) * 11.0 if absf(fighter.velocity.x) > 15.0 else 0.0
+    var crouch := 19.0 if fighter.knockdown_time > 0.0 else 0.0
+    var upper := p + Vector2(0, crouch)
+    # Piernas con volumen y botas, separadas para leer la caminata.
+    var rear_foot := upper + Vector2(-20.0 - step_phase, 61.0)
+    var front_foot := upper + Vector2(23.0 + step_phase, 61.0)
     if kick_pose:
-        draw_line(p + Vector2(15, 25), p + Vector2(forward * (35.0 + reach_pose), 25.0), tint, 15)
+        front_foot = upper + Vector2(forward * (52.0 + reach_pose), 5.0)
     elif takedown_pose:
-        draw_line(p + Vector2(15, 25), p + Vector2(forward * (25.0 + reach_pose), 53.0), tint, 15)
-    else:
-        draw_line(p + Vector2(15, 25), p + Vector2(25 - step_phase, 62), tint, 15)
-    if fighter.blocking:
-        draw_line(p + Vector2(-22, -55), p + Vector2(-13, -110), tint, 12)
-        draw_line(p + Vector2(22, -55), p + Vector2(13, -110), tint, 12)
-    else:
-        var shoulder := p + Vector2(forward * 23.0, -52)
-        var fist := p + Vector2(forward * (48.0 + reach_pose), -54)
-        draw_line(shoulder, fist, tint, 13)
-        draw_circle(fist, 8.0, tint)
-        draw_line(p + Vector2(-forward * 23.0, -53), p + Vector2(-forward * 42.0, -12), tint, 12)
+        front_foot = upper + Vector2(forward * 49.0, 54.0)
+    draw_line(upper + Vector2(-13, 14), rear_foot, ink, 21.0)
+    draw_line(upper + Vector2(13, 14), front_foot, ink, 21.0)
+    draw_line(upper + Vector2(-13, 14), rear_foot, cloth_dark, 15.0)
+    draw_line(upper + Vector2(13, 14), front_foot, cloth_dark, 15.0)
+    draw_line(rear_foot + Vector2(-8, 0), rear_foot + Vector2(11, 0), ink, 12.0)
+    draw_line(front_foot + Vector2(-8, 0), front_foot + Vector2(12, 0), ink, 12.0)
+    # Chaqueta de presidiario y torso sombreado.
+    draw_colored_polygon(PackedVector2Array([
+        upper + Vector2(-30, -69), upper + Vector2(30, -69),
+        upper + Vector2(33, 22), upper + Vector2(-33, 22)
+    ]), ink)
+    draw_colored_polygon(PackedVector2Array([
+        upper + Vector2(-26, -65), upper + Vector2(26, -65),
+        upper + Vector2(29, 17), upper + Vector2(-29, 17)
+    ]), cloth)
+    draw_line(upper + Vector2(0, -62), upper + Vector2(0, 15), cloth_dark, 4.0)
+    draw_line(upper + Vector2(-24, -34), upper + Vector2(23, -34), cloth_dark, 3.0)
+    draw_rect(Rect2(upper.x - 21, upper.y - 12, 42, 5), accent)
+    # Cuello, oreja, craneo y cabello en silueta.
+    draw_rect(Rect2(upper.x - 10, upper.y - 83, 20, 17), ink)
+    draw_rect(Rect2(upper.x - 8, upper.y - 83, 16, 17), skin)
+    draw_circle(upper + Vector2(0, -105), 28.0, ink)
+    draw_circle(upper + Vector2(0, -105), 24.0, skin)
+    draw_colored_polygon(PackedVector2Array([
+        upper + Vector2(-25, -113), upper + Vector2(-19, -134),
+        upper + Vector2(2, -138), upper + Vector2(24, -127),
+        upper + Vector2(26, -111), upper + Vector2(12, -121),
+        upper + Vector2(-7, -122)
+    ]), ink)
+    if not is_hacker:
+        draw_rect(Rect2(upper.x - 21, upper.y - 100, 43, 8), ink)
+        draw_line(upper + Vector2(-11, -89), upper + Vector2(15, -89), ink, 3.0)
+    # Nariz y ceja orientadas al adversario.
+    draw_line(upper + Vector2(forward * 9, -111), upper + Vector2(forward * 19, -111), ink, 3.0)
+    draw_line(upper + Vector2(forward * 20, -105), upper + Vector2(forward * 27, -101), ink, 2.0)
+    draw_line(upper + Vector2(forward * 8, -94), upper + Vector2(forward * 19, -95), cloth_dark, 2.0)
+    # Guardia y golpes: extremidades articuladas con contorno oscuro.
+    var shoulder_front := upper + Vector2(forward * 24.0, -54)
+    var elbow_front := upper + Vector2(forward * (37.0 + reach_pose * 0.48), -57)
+    var fist_front := upper + Vector2(forward * (42.0 + reach_pose), -78 if fighter.blocking else -53)
+    var shoulder_back := upper + Vector2(-forward * 24.0, -55)
+    var elbow_back := upper + Vector2(-forward * 36.0, -27)
+    var fist_back := upper + Vector2(-forward * 12.0, -91 if fighter.blocking else -43)
+    for segment in [[shoulder_back, elbow_back], [elbow_back, fist_back], [shoulder_front, elbow_front], [elbow_front, fist_front]]:
+        draw_line(segment[0], segment[1], ink, 19.0)
+        draw_line(segment[0], segment[1], cloth, 13.0)
+    draw_circle(fist_front, 11.0, ink)
+    draw_circle(fist_front, 8.0, skin)
+    draw_circle(fist_back, 10.0, ink)
+    draw_circle(fist_back, 7.0, skin)
+    # Tintas de luz de borde para separar al personaje del fondo.
+    draw_line(upper + Vector2(-26, -59), upper + Vector2(-27, 11), Color(0.82, 0.77, 0.66, 0.35), 2.0)
 
 func _build_ui() -> void:
     var layer := CanvasLayer.new()
