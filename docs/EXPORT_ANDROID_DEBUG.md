@@ -25,3 +25,10 @@ Se agregó `export_presets.cfg` con preset **Android Debug**, arm64, paquete pro
 - Puede comenzar, ganar o perder, y repetir.
 - Las técnicas y el bloqueo responden al tacto.
 - No solicita permisos innecesarios ni genera compras.
+
+## GitHub Actions — APK sin instalar Godot en el computador
+Se agregó `.github/workflows/android-debug.yml` para importar el proyecto, ejecutar smoke tests y exportar `CONDENA-debug.apk` en un contenedor Godot CI. El flujo es **manual** y no se ha ejecutado ni verificado. La imagen del contenedor, sus herramientas Android y la firma de depuración pueden requerir ajustes.
+
+**Importante:** GitHub normalmente solo muestra workflows con `workflow_dispatch` cuando el archivo existe en la rama predeterminada del repositorio. Por ahora este archivo está en `work/condena-combate-v02-20261107`; para dispararlo desde la interfaz de Actions puede ser necesario integrarlo primero a `main` (sin eliminar la rama de trabajo). No se ha integrado a main ni se ha creado una APK.
+
+Si el workflow llega a completarse, buscar el artefacto `CONDENA-Android-debug` en el run correspondiente. No instalar nada hasta que el artefacto exista y la ejecución sea exitosa.
