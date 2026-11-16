@@ -41,6 +41,10 @@ var camera_impact_strength := 0.0
 var impact_direction := 1.0
 var match_export_path := ""
 var match_result := ""
+var mobile_touch_actions: Dictionary = {}
+var mobile_movement_touches: Dictionary = {}
+var mobile_guard_touches: Dictionary = {}
+var mobile_button_regions: Array[Dictionary] = []
 const MOVE_LABELS := {"jab": "JAB", "low_kick": "PATADA BAJA", "cross": "CROSS", "elbow": "CODAZO", "clinch": "CLINCH", "takedown": "DERRIBO"}
 const EVENT_LABELS := {
     "feint": "AMAGUE",
@@ -82,6 +86,76 @@ func _ready() -> void:
     add_child(combat_ai)
     combat_ai.set_physics_process(false)
     queue_redraw()
+
+func _input(event: InputEvent) -> void:
+    if not match_started or match_over:
+        return
+    if event is InputEventScreenTouch:
+        var touch: InputEventScreenTouch = event
+        var location := _touch_to_viewport(touch.position)
+        if touch.pressed:
+            _begin_mobile_touch(touch.index, location)
+        else:
+            _end_mobile_touch(touch.index)
+    elif event is InputEventScreenDrag:
+        var drag: InputEventScreenDrag = event
+        var location := _touch_to_viewport(drag.position)
+        if mobile_movement_touches.has(drag.index):
+            mobile_movement_touches[drag.index] = _movement_at(location)
+            _refresh_mobile_direction()
+
+func _touch_to_viewport(screen_point: Vector2) -> Vector2:
+    return get_viewport().get_canvas_transform().affine_inverse() * screen_point
+
+func _movement_at(point: Vector2) -> float:
+    if Rect2(38, 570, 92, 100).has_point(point):
+        return -1.0
+    if Rect2(143, 570, 92, 100).has_point(point):
+        return 1.0
+    return 0.0
+
+func _begin_mobile_touch(index: int, point: Vector2) -> void:
+    if point.x < 250.0 and point.y > 540.0:
+        mobile_movement_touches[index] = _movement_at(point)
+        _refresh_mobile_direction()
+        return
+    if Rect2(745, 510, 120, 70).has_point(point):
+        mobile_guard_touches[index] = true
+        hacker.set_block(true)
+        return
+    var regions := [
+        {"rect": Rect2(875, 590, 110, 70), "action": "light"},
+        {"rect": Rect2(995, 510, 110, 70), "action": "heavy"},
+        {"rect": Rect2(620, 590, 110, 70), "action": "grapple"},
+        {"rect": Rect2(1120, 590, 120, 70), "action": "dodge"},
+        {"rect": Rect2(875, 505, 110, 70), "action": "parry"},
+        {"rect": Rect2(500, 500, 115, 65), "action": "feint"}
+    ]
+    for region in regions:
+        if region["rect"].has_point(point):
+            mobile_touch_actions[index] = region["action"]
+            match str(region["action"]):
+                "light": hacker.quick_attack()
+                "heavy": hacker.heavy_attack()
+                "grapple": hacker.grab_attack()
+                "dodge": hacker.dodge()
+                "parry": hacker.parry()
+                "feint": hacker.feint()
+            return
+
+func _end_mobile_touch(index: int) -> void:
+    mobile_touch_actions.erase(index)
+    mobile_movement_touches.erase(index)
+    mobile_guard_touches.erase(index)
+    _refresh_mobile_direction()
+    if mobile_guard_touches.is_empty():
+        hacker.set_block(false)
+
+func _refresh_mobile_direction() -> void:
+    movement = 0.0
+    for value in mobile_movement_touches.values():
+        movement += float(value)
+    movement = clampf(movement, -1.0, 1.0)
 
 func _process(delta: float) -> void:
     hit_effect_time = maxf(0.0, hit_effect_time - delta)
