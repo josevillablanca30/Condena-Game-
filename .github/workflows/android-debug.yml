@@ -55,6 +55,14 @@ jobs:
           ls -la "$ANDROID_HOME/platforms" || true
           ls -la "$ANDROID_HOME/platform-tools" || true
           keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android
+          echo "Export preset:"
+          cat export_presets.cfg
+          echo "Installed Android templates:"
+          ls -lh "$HOME/.local/share/godot/export_templates/4.2.2.stable/"
+          echo "Android SDK components:"
+          find "$ANDROID_HOME" -maxdepth 2 -type d \( -name "android-33" -o -name "33.0.2" -o -name "platform-tools" \) -print
+      - name: Diagnose Android export preset
+        run: godot --headless --path . --script res://tests/android_export_diagnostics.gd
       - name: Export Android debug
         run: |
           mkdir -p build
