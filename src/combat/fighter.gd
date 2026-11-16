@@ -23,6 +23,8 @@ var attack_serial := 0
 var invulnerable := false
 var stun_time := 0.0
 var guard_pressure := 0.0
+var leg_slow_time := 0.0
+var knockdown_time := 0.0
 var attack_kind := ""
 # Repertorio configurable: las técnicas comparten ranuras y tienen costes propios.
 var equipped_moves: Dictionary = {"light": "jab", "heavy": "cross", "grapple": "clinch"}
@@ -59,10 +61,12 @@ func _physics_process(delta: float) -> void:
         velocity = Vector2.ZERO
         return
     stun_time = maxf(0.0, stun_time - delta)
+    leg_slow_time = maxf(0.0, leg_slow_time - delta)
+    knockdown_time = maxf(0.0, knockdown_time - delta)
     stamina = minf(max_stamina, stamina + (6.0 if blocking else 16.0) * delta)
     guard_pressure = maxf(0.0, guard_pressure - 9.0 * delta)
     stamina_changed.emit(stamina)
-    velocity = Vector2(direction * move_speed if not busy and not blocking and stun_time <= 0.0 else 0.0, 0.0)
+    velocity = Vector2(direction * move_speed * (0.65 if leg_slow_time > 0.0 else 1.0) if not busy and not blocking and stun_time <= 0.0 and knockdown_time <= 0.0 else 0.0, 0.0)
     move_and_slide()
     position.x = clampf(position.x, 95.0, 1185.0)
 
@@ -81,7 +85,7 @@ func heavy_attack() -> void:
     use_move("heavy")
 
 func dodge() -> void:
-    if dead or busy or blocking or stamina < 18.0:
+    if dead or busy or blocking or knockdown_time > 0.0 or stamina < 18.0:
         return
     stamina -= 18.0
     busy = true
@@ -99,7 +103,7 @@ func grab_attack() -> void:
     use_move("grapple")
 
 func _attack(cost: float, damage: float, reach: float, duration: float, kind: String) -> void:
-    if dead or busy or blocking or stun_time > 0.0 or stamina < cost:
+    if dead or busy or blocking or stun_time > 0.0 or knockdown_time > 0.0 or stamina < cost:
         return
     stamina -= cost
     busy = true
@@ -110,12 +114,12 @@ func _attack(cost: float, damage: float, reach: float, duration: float, kind: St
     if not is_inside_tree() or dead or serial != attack_serial:
         return
     if opponent != null and not opponent.dead and absf(opponent.position.x - position.x) <= reach:
-        opponent.receive_hit(damage, kind)
+        opponent.receive_hit(damage, kind, equipped_moves.get("light", "") if kind == "quick" else equipped_moves.get("heavy", "") if kind == "heavy" else equipped_moves.get("grapple", ""))
     await get_tree().create_timer(duration * 0.55).timeout
     if is_inside_tree() and serial == attack_serial:
         busy = false
 
-func receive_hit(damage: float, kind: String = "quick") -> void:
+func receive_hit(damage: float, kind: String = "quick", move_id: String = "") -> void:
     if dead or invulnerable:
         return
     # Agarres contrarrestan bloqueo; ataques fuertes desgastan la guardia.
@@ -136,6 +140,11 @@ func receive_hit(damage: float, kind: String = "quick") -> void:
         stun_time = 0.12 if kind != "grab" else 0.3
     var guarded := blocking and kind != "grab"
     health = maxf(0.0, health - damage * (0.25 if guarded else 1.0))
+    if move_id == "low_kick" and not guarded:
+        leg_slow_time = maxf(leg_slow_time, 2.0)
+    if move_id == "takedown" and not guarded:
+        knockdown_time = maxf(knockdown_time, 0.85)
+        stun_time = maxf(stun_time, 0.85)
     health_changed.emit(health)
     if health <= 0.0:
         dead = true
