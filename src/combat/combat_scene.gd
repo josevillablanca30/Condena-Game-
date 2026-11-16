@@ -40,6 +40,7 @@ var camera_impact := 0.0
 var camera_impact_strength := 0.0
 var impact_direction := 1.0
 var match_export_path := ""
+var match_result := ""
 const MOVE_LABELS := {"jab": "JAB", "low_kick": "PATADA BAJA", "cross": "CROSS", "elbow": "CODAZO", "clinch": "CLINCH", "takedown": "DERRIBO"}
 const EVENT_LABELS := {
     "feint": "AMAGUE",
@@ -92,7 +93,10 @@ func _process(delta: float) -> void:
         if elapsed_seconds >= ROUND_LIMIT_SECONDS:
             var player_fraction := hacker.health / maxf(1.0, hacker.max_health)
             var rival_fraction := chico.health / maxf(1.0, chico.max_health)
-            _finish(player_fraction >= rival_fraction)
+            if absf(player_fraction - rival_fraction) <= 0.001:
+                _finish_draw()
+            else:
+                _finish(player_fraction > rival_fraction)
             return
     if match_over:
         return
@@ -448,16 +452,33 @@ func _button(parent: Control, caption: String, pos: Vector2, size: Vector2, pres
     action_buttons.append(b)
     return b
 
+func _finish_draw() -> void:
+    if match_over:
+        return
+    _finish_match("EMPATE", "EMPATE")
+
 func _finish(won: bool) -> void:
+    var winner := "HACKER" if won else "EL CHICO"
+    var result_title := ("GANA HACKER" if won else "GANA EL CHICO") if local_duel else ("GANASTE" if won else "PERDISTE")
+    _finish_match(winner, result_title)
+
+func _finish_match(winner: String, result_title: String) -> void:
+    if match_over:
+        return
     match_over = true
+    match_result = winner
     combat_ai.set_physics_process(false)
     hacker.set_direction(0.0)
     chico.set_direction(0.0)
-    status_label.text = ("GANA HACKER" if won else "GANA EL CHICO") if local_duel else ("GANASTE" if won else "PERDISTE")
-    var winner := "HACKER" if won else "EL CHICO"
-    var stats: Dictionary = fighter_stats[winner]
-    status_label.text += " — La historia continúa"
-    status_label.text += "\n%s: %d impactos · %d combos · %d esquivas · %d paradas · %d contras" % [winner, int(stats["hits"]), int(stats["combos"]), int(stats["dodges"]), int(stats["parries"]), int(stats["counters"])]
+    status_label.text = result_title + " — La historia continúa"
+    if winner != "EMPATE":
+        var stats: Dictionary = fighter_stats[winner]
+        status_label.text += "\n%s: %d impactos · %d combos · %d esquivas · %d paradas · %d contras" % [winner, int(stats["hits"]), int(stats["combos"]), int(stats["dodges"]), int(stats["parries"]), int(stats["counters"])]
+    for action_button in action_buttons:
+        if action_button != restart_button:
+            action_button.hide()
+    hacker.set_block(false)
+    chico.set_block(false)
     restart_button.show()
     broadcast_view = false
     _save_match_record(winner)
