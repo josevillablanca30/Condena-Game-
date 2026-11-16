@@ -145,7 +145,7 @@ func _run() -> void:
         return
 
     arena.call("_finish", true)
-    var saved_event_count := arena.get("event_history").size()
+    var saved_event_count: int = (arena.get("event_history") as Array).size()
     arena.call("_finish", false)
     if arena.get("match_result") != "HACKER" or arena.get("event_history").size() != saved_event_count:
         _fail("El resultado cambio al intentar finalizar dos veces")
