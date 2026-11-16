@@ -19,6 +19,16 @@ func _run() -> void:
     root.add_child(arena)
     await process_frame
 
+    arena.call("_toggle_duel_mode")
+    if not arena.get("local_duel"):
+        _fail("No se activo el modo duelo local")
+        return
+    arena.call("_start_combat")
+    var ai: AIElChico = arena.get("combat_ai")
+    if ai.is_physics_processing():
+        _fail("La IA siguio activa en el duelo local")
+        return
+
     var hacker: CondenaFighter = arena.get_node("Hacker")
     var chico: CondenaFighter = arena.get_node("Chico")
     if hacker.opponent != chico or chico.opponent != hacker:
