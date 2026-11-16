@@ -26,10 +26,11 @@ func _ready() -> void:
     hacker.opponent = chico
     chico.opponent = hacker
     hacker.defeated.connect(func(): _finish(false))
-    chico.max_health = 620.0
-    hacker.max_health = 740.0
-    hacker.health = 740.0
-    chico.health = 620.0
+    # Provisional: encuentros mas breves para probar lectura, recursos y combos.
+    hacker.max_health = 120.0
+    chico.max_health = 115.0
+    hacker.health = hacker.max_health
+    chico.health = chico.max_health
     chico.defeated.connect(func(): _finish(true))
     hacker.confirmed_hit.connect(_on_confirmed_hit)
     chico.confirmed_hit.connect(_on_confirmed_hit)
@@ -51,7 +52,7 @@ func _process(delta: float) -> void:
         return
     hacker.set_direction(movement if match_started else 0.0)
     # La IA ahora se ejecuta desde AIElChico, sin duplicar ataques.
-    health_label.text = "HACKER  %d HP | %d RES.            EL CHICO  %d HP" % [int(hacker.health), int(hacker.stamina), int(chico.health)]
+    health_label.text = "HACKER  %d VIDA | %d RES.            EL CHICO  %d VIDA | %d RES." % [int(hacker.health), int(hacker.stamina), int(chico.health), int(chico.stamina)]
     for slot in technique_buttons:
         var button: Button = technique_buttons[slot]
         var move_id: String = str(hacker.equipped_moves[slot])
@@ -108,7 +109,7 @@ func _build_ui() -> void:
     add_child(layer)
     var ui := Control.new()
     ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-    ui.mouse_filter = Control.MOUSE_FILTER_PASS
+    ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
     layer.add_child(ui)
     health_label = Label.new()
     health_label.position = Vector2(36, 25)
@@ -175,7 +176,8 @@ func _button(parent: Control, caption: String, pos: Vector2, size: Vector2, pres
     b.text = caption
     b.position = pos
     b.size = size
-    b.modulate.a = 0.8
+    b.modulate.a = 0.88
+    b.mouse_filter = Control.MOUSE_FILTER_STOP
     b.button_down.connect(pressed_action)
     if released_action.is_valid():
         b.button_up.connect(released_action)
