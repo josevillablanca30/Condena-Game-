@@ -87,7 +87,7 @@ func _ready() -> void:
     queue_redraw()
 
 func _input(event: InputEvent) -> void:
-    if not match_started or match_over:
+    if not OS.has_feature("android") or not match_started or match_over:
         return
     if event is InputEventScreenTouch:
         var touch: InputEventScreenTouch = event
@@ -560,6 +560,10 @@ func _finish_match(winner: String, result_title: String) -> void:
             action_button.hide()
     hacker.set_block(false)
     chico.set_block(false)
+    player_health_bar.value = hacker.health
+    enemy_health_bar.value = chico.health
+    player_stamina_bar.value = hacker.stamina
+    enemy_stamina_bar.value = chico.stamina
     restart_button.show()
     broadcast_view = false
     _save_match_record(winner)
