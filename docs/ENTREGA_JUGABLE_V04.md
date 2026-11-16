@@ -28,6 +28,7 @@
 - J: ligera; K: fuerte; L: agarre
 - ESPACIO: esquiva; F: parada; E: amague
 - SHIFT: bloqueo; ENTER: iniciar
+- V: alternar vista limpia para retransmisión local (sin botones táctiles); J/K/L y demás teclas siguen funcionando
 
 ## Cómo probar gratis
 1. Abrir el proyecto con Godot 4.2.2 (sin plugins de pago).
