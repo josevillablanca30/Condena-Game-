@@ -26,6 +26,10 @@ var guard_pressure := 0.0
 var leg_slow_time := 0.0
 var knockdown_time := 0.0
 var attack_kind := ""
+const BODY_HALF_WIDTH := 27.0
+const MIN_BODY_GAP := BODY_HALF_WIDTH * 2.0
+var facing := 1.0
+signal confirmed_hit(move_id: String, target: CondenaFighter)
 # Repertorio configurable: las técnicas comparten ranuras y tienen costes propios.
 var equipped_moves: Dictionary = {"light": "jab", "heavy": "cross", "grapple": "clinch"}
 const MOVE_DATA := {
@@ -51,6 +55,15 @@ func use_move(slot: String) -> void:
     _attack(float(data["cost"]), attack_damage * float(data["damage"]), float(data["reach"]), float(data["duration"]), str(data["kind"]))
 
 func _ready() -> void:
+    # Colisión corporal real entre luchadores, sin atravesarse.
+    var collider := CollisionShape2D.new()
+    var body_shape := RectangleShape2D.new()
+    body_shape.size = Vector2(BODY_HALF_WIDTH * 2.0, 150.0)
+    collider.position = Vector2(0, -45)
+    collider.shape = body_shape
+    add_child(collider)
+    collision_layer = 1
+    collision_mask = 1
     health = max_health
     stamina = max_stamina
     health_changed.emit(health)
@@ -66,6 +79,8 @@ func _physics_process(delta: float) -> void:
     stamina = minf(max_stamina, stamina + (6.0 if blocking else 16.0) * delta)
     guard_pressure = maxf(0.0, guard_pressure - 9.0 * delta)
     stamina_changed.emit(stamina)
+    if opponent != null and not opponent.dead:
+        facing = signf(opponent.position.x - position.x) if absf(opponent.position.x - position.x) > 1.0 else facing
     velocity = Vector2(direction * move_speed * (0.65 if leg_slow_time > 0.0 else 1.0) if not busy and not blocking and stun_time <= 0.0 and knockdown_time <= 0.0 else 0.0, 0.0)
     move_and_slide()
     position.x = clampf(position.x, 95.0, 1185.0)
@@ -92,9 +107,15 @@ func dodge() -> void:
     invulnerable = true
     var start_x := position.x
     var away := -1.0 if opponent != null and opponent.position.x > position.x else 1.0
-    var tween := create_tween()
-    tween.tween_property(self, "position:x", clampf(start_x + away * 105.0, 95.0, 1185.0), 0.2)
-    await tween.finished
+    # La esquiva usa movimiento físico para respetar las colisiones.
+    var elapsed := 0.0
+    while elapsed < 0.20 and is_inside_tree() and not dead:
+        var step := get_physics_process_delta_time()
+        velocity = Vector2(away * 525.0, 0.0)
+        move_and_slide()
+        position.x = clampf(position.x, 95.0, 1185.0)
+        elapsed += step
+        await get_tree().physics_frame
     if is_inside_tree():
         invulnerable = false
         busy = false
@@ -110,11 +131,19 @@ func _attack(cost: float, damage: float, reach: float, duration: float, kind: St
     attack_serial += 1
     attack_kind = kind
     var serial := attack_serial
+    var move_id: String = str(equipped_moves.get("light", "")) if kind == "quick" else str(equipped_moves.get("heavy", "")) if kind == "heavy" else str(equipped_moves.get("grapple", ""))
+    var locked_facing := facing
     await get_tree().create_timer(duration * 0.45).timeout
     if not is_inside_tree() or dead or serial != attack_serial:
         return
-    if opponent != null and not opponent.dead and absf(opponent.position.x - position.x) <= reach:
-        opponent.receive_hit(damage, kind, equipped_moves.get("light", "") if kind == "quick" else equipped_moves.get("heavy", "") if kind == "heavy" else equipped_moves.get("grapple", ""))
+    # La zona de impacto se proyecta delante del atacante, no alrededor de su centro.
+    # Prototipo geométrico; los hitboxes por fotograma vendrán con las animaciones.
+    if opponent != null and not opponent.dead:
+        var relative_x := (opponent.position.x - position.x) * locked_facing
+        var contact := relative_x >= BODY_HALF_WIDTH and relative_x - BODY_HALF_WIDTH <= reach
+        if contact and not opponent.invulnerable:
+            opponent.receive_hit(damage, kind, move_id)
+            confirmed_hit.emit(move_id, opponent)
     await get_tree().create_timer(duration * 0.55).timeout
     if is_inside_tree() and serial == attack_serial:
         busy = false
