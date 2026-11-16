@@ -24,6 +24,29 @@ var invulnerable := false
 var stun_time := 0.0
 var guard_pressure := 0.0
 var attack_kind := ""
+# Repertorio configurable: las técnicas comparten ranuras y tienen costes propios.
+var equipped_moves: Dictionary = {"light": "jab", "heavy": "cross", "grapple": "clinch"}
+const MOVE_DATA := {
+    "jab": {"kind": "quick", "cost": 10.0, "damage": 1.0, "reach": 95.0, "duration": 0.28},
+    "low_kick": {"kind": "quick", "cost": 16.0, "damage": 1.1, "reach": 120.0, "duration": 0.43},
+    "cross": {"kind": "heavy", "cost": 28.0, "damage": 1.8, "reach": 105.0, "duration": 0.58},
+    "elbow": {"kind": "heavy", "cost": 22.0, "damage": 1.45, "reach": 70.0, "duration": 0.38},
+    "clinch": {"kind": "grab", "cost": 25.0, "damage": 1.25, "reach": 65.0, "duration": 0.50},
+    "takedown": {"kind": "grab", "cost": 36.0, "damage": 1.55, "reach": 55.0, "duration": 0.72}
+}
+const MOVE_SLOTS := {"light": ["jab", "low_kick"], "heavy": ["cross", "elbow"], "grapple": ["clinch", "takedown"]}
+
+func equip_move(slot: String, move_id: String) -> bool:
+    if busy or dead or not MOVE_SLOTS.has(slot) or not move_id in MOVE_SLOTS[slot]:
+        return false
+    equipped_moves[slot] = move_id
+    return true
+
+func use_move(slot: String) -> void:
+    if not equipped_moves.has(slot):
+        return
+    var data: Dictionary = MOVE_DATA[equipped_moves[slot]]
+    _attack(float(data["cost"]), attack_damage * float(data["damage"]), float(data["reach"]), float(data["duration"]), str(data["kind"]))
 
 func _ready() -> void:
     health = max_health
@@ -52,10 +75,10 @@ func set_block(value: bool) -> void:
     blocking = value and not busy
 
 func quick_attack() -> void:
-    _attack(10.0, attack_damage, 95.0, 0.28, "quick")
+    use_move("light")
 
 func heavy_attack() -> void:
-    _attack(28.0, attack_damage * 1.8, 105.0, 0.58, "heavy")
+    use_move("heavy")
 
 func dodge() -> void:
     if dead or busy or blocking or stamina < 18.0:
@@ -73,7 +96,7 @@ func dodge() -> void:
         busy = false
 
 func grab_attack() -> void:
-    _attack(25.0, attack_damage * 1.25, 65.0, 0.50, "grab")
+    use_move("grapple")
 
 func _attack(cost: float, damage: float, reach: float, duration: float, kind: String) -> void:
     if dead or busy or blocking or stun_time > 0.0 or stamina < cost:
