@@ -59,7 +59,7 @@ func use_move(slot: String) -> void:
     if not equipped_moves.has(slot):
         return
     var data: Dictionary = MOVE_DATA[equipped_moves[slot]]
-    _attack(float(data["cost"]), attack_damage * float(data["damage"]), float(data["reach"]), float(data["duration"]), str(data["kind"]))
+    _attack(str(equipped_moves[slot]), float(data["cost"]), attack_damage * float(data["damage"]), float(data["reach"]), float(data["duration"]), str(data["kind"]))
 
 func _ready() -> void:
     # Colisión corporal real entre luchadores, sin atravesarse.
@@ -94,7 +94,15 @@ func _physics_process(delta: float) -> void:
     stamina_changed.emit(stamina)
     if opponent != null and not opponent.dead:
         facing = signf(opponent.position.x - position.x) if absf(opponent.position.x - position.x) > 1.0 else facing
-    velocity = Vector2(dodge_velocity if invulnerable else direction * move_speed * (0.65 if leg_slow_time > 0.0 else 1.0) if not busy and not blocking and stun_time <= 0.0 and knockdown_time <= 0.0 else 0.0, 0.0)
+    # Desplazamiento horizontal fisico y estados explicitos.
+    var horizontal_speed := 0.0
+    if invulnerable:
+        horizontal_speed = dodge_velocity
+    elif not busy and not blocking and stun_time <= 0.0 and knockdown_time <= 0.0 and recovery_time <= 0.0:
+        horizontal_speed = direction * move_speed
+        if leg_slow_time > 0.0:
+            horizontal_speed *= 0.65
+    velocity = Vector2(horizontal_speed, 0.0)
     move_and_slide()
     position.x = clampf(position.x, 95.0, 1185.0)
 
@@ -121,10 +129,12 @@ func dodge() -> void:
     var away := -1.0 if opponent != null and opponent.position.x > position.x else 1.0
     dodge_velocity = away * 525.0
     await get_tree().create_timer(0.2).timeout
-    if is_inside_tree():
+    if is_inside_tree() and not dead:
         invulnerable = false
         dodge_velocity = 0.0
         busy = false
+        recovery_time = 0.25
+        combat_event.emit("dodge_recovery", "")
 
 func grab_attack() -> void:
     use_move("grapple")
@@ -135,24 +145,26 @@ func feint() -> void:
         return
     stamina -= 12.0
     busy = true
+    attack_serial += 1
+    var serial := attack_serial
     feint_window = 0.18
     combat_event.emit("feint", "")
     await get_tree().create_timer(0.18).timeout
-    if is_inside_tree() and not dead:
+    if is_inside_tree() and not dead and serial == attack_serial:
         busy = false
         recovery_time = 0.12
 
-func _attack(cost: float, damage: float, reach: float, duration: float, kind: String) -> void:
+func _attack(move_id: String, cost: float, damage: float, reach: float, duration: float, kind: String) -> void:
     if dead or busy or blocking or stun_time > 0.0 or knockdown_time > 0.0 or recovery_time > 0.0 or stamina < cost:
         return
     stamina -= cost
     busy = true
     attack_serial += 1
     attack_kind = kind
-    combat_event.emit("attack_started", kind)
+    combat_event.emit("attack_started", move_id)
     var serial := attack_serial
     var combo_damage_scale := maxf(0.60, 1.0 - float(combo_hits) * 0.12)
-    var move_id: String = str(equipped_moves.get("light", "")) if kind == "quick" else str(equipped_moves.get("heavy", "")) if kind == "heavy" else str(equipped_moves.get("grapple", ""))
+    var chained_hit := combo_hits > 0 and combo_window > 0.0
     var locked_facing := facing
     await get_tree().create_timer(duration * 0.45).timeout
     if not is_inside_tree() or dead or serial != attack_serial:
@@ -163,12 +175,19 @@ func _attack(cost: float, damage: float, reach: float, duration: float, kind: St
         var relative_x := (opponent.position.x - position.x) * locked_facing
         var contact := relative_x >= BODY_HALF_WIDTH and relative_x - BODY_HALF_WIDTH <= reach
         if contact and not opponent.invulnerable:
+            var guarded_hit := opponent.blocking and kind != "grab"
             opponent.receive_hit(damage * combo_damage_scale, kind, move_id)
-            combo_hits = mini(combo_hits + 1, 5)
-            combo_window = 0.85
-            combo_changed.emit(combo_hits)
+            if guarded_hit:
+                combo_hits = 0
+                combo_window = 0.0
+                combo_changed.emit(0)
+                combat_event.emit("blocked_attack", move_id)
+            else:
+                combo_hits = mini(combo_hits + 1, 5) if chained_hit else 1
+                combo_window = 0.85
+                combo_changed.emit(combo_hits)
+                combat_event.emit("combo_hit" if chained_hit else "hit_confirmed", move_id)
             confirmed_hit.emit(move_id, opponent)
-            combat_event.emit("hit_confirmed", move_id)
         else:
             combo_hits = 0
             combo_window = 0.0
@@ -177,6 +196,7 @@ func _attack(cost: float, damage: float, reach: float, duration: float, kind: St
     await get_tree().create_timer(duration * 0.55).timeout
     if is_inside_tree() and serial == attack_serial:
         busy = false
+        attack_kind = ""
         recovery_time = 0.10 if kind == "quick" else 0.20
 
 func receive_hit(damage: float, kind: String = "quick", move_id: String = "") -> void:
