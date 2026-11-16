@@ -25,6 +25,7 @@ var player_health_bar: ProgressBar
 var player_stamina_bar: ProgressBar
 var enemy_health_bar: ProgressBar
 var enemy_stamina_bar: ProgressBar
+const ROUND_LIMIT_SECONDS := 90.0
 var elapsed_seconds := 0.0
 var event_history: Array[Dictionary] = []
 var fighter_stats: Dictionary = {"HACKER": {"hits": 0, "dodges": 0, "parries": 0, "counters": 0, "combos": 0}, "EL CHICO": {"hits": 0, "dodges": 0, "parries": 0, "counters": 0, "combos": 0}}
@@ -86,7 +87,13 @@ func _process(delta: float) -> void:
     camera_impact = maxf(0.0, camera_impact - delta)
     if match_started and not match_over:
         elapsed_seconds += delta
-        timer_label.text = "%02d:%02d" % [int(elapsed_seconds / 60.0), int(elapsed_seconds) % 60]
+        var remaining := maxi(0, int(ceil(ROUND_LIMIT_SECONDS - elapsed_seconds)))
+        timer_label.text = "R1  %02d:%02d" % [remaining / 60, remaining % 60]
+        if elapsed_seconds >= ROUND_LIMIT_SECONDS:
+            var player_fraction := hacker.health / maxf(1.0, hacker.max_health)
+            var rival_fraction := chico.health / maxf(1.0, chico.max_health)
+            _finish(player_fraction >= rival_fraction)
+            return
     if match_over:
         return
     var keyboard_direction := 0.0
@@ -271,7 +278,7 @@ func _build_ui() -> void:
     timer_label = Label.new()
     timer_label.position = Vector2(604, 25)
     timer_label.add_theme_font_size_override("font_size", 28)
-    timer_label.text = "00:00"
+    timer_label.text = "R1  01:30"
     ui.add_child(timer_label)
     tutorial_label = Label.new()
     tutorial_label.position = Vector2(340, 265)
