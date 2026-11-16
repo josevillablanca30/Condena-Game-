@@ -33,6 +33,8 @@ var restart_button: Button
 var tutorial_label: Label
 var action_buttons: Array[Button] = []
 var broadcast_view := false
+var local_duel := false
+var duel_mode_button: Button
 const MOVE_LABELS := {"jab": "JAB", "low_kick": "PATADA BAJA", "cross": "CROSS", "elbow": "CODAZO", "clinch": "CLINCH", "takedown": "DERRIBO"}
 const EVENT_LABELS := {
     "feint": "AMAGUE",
@@ -83,11 +85,18 @@ func _process(delta: float) -> void:
     if match_over:
         return
     var keyboard_direction := 0.0
-    if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT):
+    if Input.is_key_pressed(KEY_A) or (not local_duel and Input.is_key_pressed(KEY_LEFT)):
         keyboard_direction -= 1.0
-    if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):
+    if Input.is_key_pressed(KEY_D) or (not local_duel and Input.is_key_pressed(KEY_RIGHT)):
         keyboard_direction += 1.0
     hacker.set_direction(clampf(movement + keyboard_direction, -1.0, 1.0) if match_started else 0.0)
+    if match_started and local_duel:
+        var rival_direction := 0.0
+        if Input.is_key_pressed(KEY_LEFT):
+            rival_direction -= 1.0
+        if Input.is_key_pressed(KEY_RIGHT):
+            rival_direction += 1.0
+        chico.set_direction(rival_direction)
     # La IA ahora se ejecuta desde AIElChico, sin duplicar ataques.
     health_label.text = "HACKER"
     player_health_bar.max_value = hacker.max_health
@@ -254,6 +263,7 @@ func _build_ui() -> void:
     _button(ui, "▶", Vector2(143, 570), Vector2(92, 100), func(): movement = 1.0, func(): movement = 0.0)
     start_button = _button(ui, "INICIAR COMBATE", Vector2(460, 345), Vector2(360, 75), func(): _start_combat())
     start_button.add_theme_font_size_override("font_size", 25)
+    duel_mode_button = _button(ui, "RIVAL: IA (CAMBIAR)", Vector2(460, 430), Vector2(360, 60), func(): _toggle_duel_mode())
     restart_button = _button(ui, "REPETIR COMBATE", Vector2(460, 350), Vector2(360, 75), func(): get_tree().reload_current_scene())
     restart_button.hide()
     technique_buttons["light"] = _button(ui, "JAB", Vector2(875, 590), Vector2(110, 70), func(): hacker.quick_attack())
@@ -279,6 +289,9 @@ func _unhandled_key_input(event: InputEvent) -> void:
         if match_started and not match_over:
             hacker.set_block(key_event.pressed)
         return
+    if key_event.keycode == KEY_0 and local_duel and match_started and not match_over:
+        chico.set_block(key_event.pressed)
+        return
     if not key_event.pressed:
         return
     if key_event.keycode == KEY_V and match_started and not match_over:
@@ -293,6 +306,20 @@ func _unhandled_key_input(event: InputEvent) -> void:
         return
     if match_over:
         return
+    if local_duel:
+        match key_event.keycode:
+            KEY_1:
+                chico.quick_attack()
+            KEY_2:
+                chico.heavy_attack()
+            KEY_3:
+                chico.grab_attack()
+            KEY_4:
+                chico.dodge()
+            KEY_5:
+                chico.parry()
+            KEY_6:
+                chico.feint()
     match key_event.keycode:
         KEY_J:
             hacker.quick_attack()
@@ -306,6 +333,13 @@ func _unhandled_key_input(event: InputEvent) -> void:
             hacker.parry()
         KEY_E:
             hacker.feint()
+
+func _toggle_duel_mode() -> void:
+    if match_started or match_over:
+        return
+    local_duel = not local_duel
+    duel_mode_button.text = "RIVAL: JUGADOR 2" if local_duel else "RIVAL: IA (CAMBIAR)"
+    tutorial_label.text = "DUELO LOCAL: P1 A/D + J/K/L + F/E/ESPACIO; P2 FLECHAS + 1/2/3 + 4/5/6" if local_duel else "Lee al rival: bloqueo pierde ante agarre; parada pierde ante agarre.\nAmaga para provocar errores y castiga las esquivas."
 
 func _try_parry() -> void:
     if match_started and not match_over:
@@ -321,8 +355,9 @@ func _start_combat() -> void:
     match_started = true
     start_button.hide()
     loadout_button.hide()
+    duel_mode_button.hide()
     tutorial_label.hide()
-    combat_ai.set_physics_process(true)
+    combat_ai.set_physics_process(not local_duel)
 
 func _cycle_loadout() -> void:
     if match_started or match_over or hacker.busy:
