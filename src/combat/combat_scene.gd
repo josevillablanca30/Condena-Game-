@@ -7,6 +7,7 @@ var movement := 0.0
 var match_over := false
 var ai_cooldown := 0.0
 var health_label: Label
+var enemy_label: Label
 var status_label: Label
 var loadout_label: Label
 var technique_buttons: Dictionary = {}
@@ -69,7 +70,7 @@ func _process(delta: float) -> void:
         return
     hacker.set_direction(movement if match_started else 0.0)
     # La IA ahora se ejecuta desde AIElChico, sin duplicar ataques.
-    health_label.text = "HACKER                               EL CHICO"
+    health_label.text = "HACKER"
     player_health_bar.max_value = hacker.max_health
     player_health_bar.value = hacker.health
     player_stamina_bar.max_value = hacker.max_stamina
@@ -161,6 +162,11 @@ func _build_ui() -> void:
     health_label.position = Vector2(36, 25)
     health_label.add_theme_font_size_override("font_size", 22)
     ui.add_child(health_label)
+    enemy_label = Label.new()
+    enemy_label.text = "EL CHICO"
+    enemy_label.position = Vector2(1130, 25)
+    enemy_label.add_theme_font_size_override("font_size", 22)
+    ui.add_child(enemy_label)
     player_health_bar = _meter(ui, Vector2(36, 61), Vector2(310, 19), Color(0.88, 0.88, 0.88))
     player_stamina_bar = _meter(ui, Vector2(36, 85), Vector2(310, 12), Color(0.66, 0.66, 0.66))
     enemy_health_bar = _meter(ui, Vector2(934, 61), Vector2(310, 19), Color(0.88, 0.88, 0.88))
