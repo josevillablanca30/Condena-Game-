@@ -42,6 +42,11 @@ func _run() -> void:
     chico.position.x = 585.0
     var health_before: float = chico.health
     hacker.quick_attack()
+    var stamina_after_attack := hacker.stamina
+    hacker.quick_attack()
+    if hacker.stamina < stamina_after_attack - 0.1:
+        _fail("El spam de botones cobro dos ataques simultaneos")
+        return
     await create_timer(0.40).timeout
     if chico.health >= health_before:
         _fail("El jab en alcance no hizo daño")
@@ -110,6 +115,9 @@ func _run() -> void:
         return
 
     arena.call("_finish", true)
+    if not arena.get("match_over"):
+        _fail("El combate no finalizo")
+        return
     if not FileAccess.file_exists("user://condena_last_match.json"):
         _fail("No se guardo el registro JSON local")
         return
