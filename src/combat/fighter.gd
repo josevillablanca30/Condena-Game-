@@ -32,6 +32,9 @@ var facing := 1.0
 var dodge_velocity := 0.0
 var recovery_time := 0.0
 var feint_window := 0.0
+var combo_hits := 0
+var combo_window := 0.0
+signal combo_changed(hits: int)
 signal confirmed_hit(move_id: String, target: CondenaFighter)
 signal combat_event(event_name: String, move_id: String)
 # Repertorio configurable: las técnicas comparten ranuras y tienen costes propios.
@@ -82,6 +85,10 @@ func _physics_process(delta: float) -> void:
     knockdown_time = maxf(0.0, knockdown_time - delta)
     recovery_time = maxf(0.0, recovery_time - delta)
     feint_window = maxf(0.0, feint_window - delta)
+    combo_window = maxf(0.0, combo_window - delta)
+    if combo_window <= 0.0 and combo_hits > 0:
+        combo_hits = 0
+        combo_changed.emit(0)
     stamina = minf(max_stamina, stamina + (6.0 if blocking else 16.0) * delta)
     guard_pressure = maxf(0.0, guard_pressure - 9.0 * delta)
     stamina_changed.emit(stamina)
@@ -144,6 +151,7 @@ func _attack(cost: float, damage: float, reach: float, duration: float, kind: St
     attack_kind = kind
     combat_event.emit("attack_started", kind)
     var serial := attack_serial
+    var combo_damage_scale := maxf(0.60, 1.0 - float(combo_hits) * 0.12)
     var move_id: String = str(equipped_moves.get("light", "")) if kind == "quick" else str(equipped_moves.get("heavy", "")) if kind == "heavy" else str(equipped_moves.get("grapple", ""))
     var locked_facing := facing
     await get_tree().create_timer(duration * 0.45).timeout
@@ -155,10 +163,16 @@ func _attack(cost: float, damage: float, reach: float, duration: float, kind: St
         var relative_x := (opponent.position.x - position.x) * locked_facing
         var contact := relative_x >= BODY_HALF_WIDTH and relative_x - BODY_HALF_WIDTH <= reach
         if contact and not opponent.invulnerable:
-            opponent.receive_hit(damage, kind, move_id)
+            opponent.receive_hit(damage * combo_damage_scale, kind, move_id)
+            combo_hits = mini(combo_hits + 1, 5)
+            combo_window = 0.85
+            combo_changed.emit(combo_hits)
             confirmed_hit.emit(move_id, opponent)
             combat_event.emit("hit_confirmed", move_id)
         else:
+            combo_hits = 0
+            combo_window = 0.0
+            combo_changed.emit(0)
             combat_event.emit("attack_whiffed", move_id)
     await get_tree().create_timer(duration * 0.55).timeout
     if is_inside_tree() and serial == attack_serial:
@@ -186,10 +200,14 @@ func receive_hit(damage: float, kind: String = "quick", move_id: String = "") ->
     if not guard_broken:
         stun_time = 0.12 if kind != "grab" else 0.3
     # El golpe interrumpe el ataque rival antes de su ventana de contacto.
+    combo_hits = 0
+    combo_window = 0.0
+    combo_changed.emit(0)
     if busy and not blocking:
         attack_serial += 1
         busy = false
         attack_kind = ""
+        recovery_time = maxf(recovery_time, 0.18)
     var guarded := was_blocking and not guard_broken and kind != "grab"
     if guarded:
         combat_event.emit("guarded", move_id)
