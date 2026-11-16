@@ -92,6 +92,11 @@ func _ready() -> void:
     story_screen.scene_finished.connect(_on_story_scene_finished)
     story_screen.choice_selected.connect(func(key: String, value: String): campaign_bridge.campaign.record_choice(key, value))
     _refresh_loadout_label()
+    campaign_mode = bool(SaveSystemV2.load_profile().get("campaign_active", false))
+    if campaign_mode:
+        campaign_button.text = "CAMPAÑA: ACTIVADA"
+        var status := campaign_bridge.current_status()
+        tutorial_label.text = "CAPÍTULO 1 — ESCENA %d/9" % mini(9, int(status["scene"]) + 1)
     combat_ai = AIElChico.new()
     combat_ai.set("fighter", chico)
     combat_ai.set("target", hacker)
@@ -566,6 +571,9 @@ func _toggle_campaign() -> void:
         local_duel = false
         duel_mode_button.text = "RIVAL: IA"
     campaign_button.text = "CAMPAÑA: ACTIVADA" if campaign_mode else "CAMPAÑA: DESACTIVADA"
+    var profile := SaveSystemV2.load_profile()
+    profile["campaign_active"] = campaign_mode
+    SaveSystemV2.save_profile(profile)
     var status := campaign_bridge.current_status()
     tutorial_label.text = "Capítulo 1 — escena %d/9. Las escenas narrativas aún están pendientes." % (int(status["scene"]) + 1) if campaign_mode else "Lee al rival: bloqueo pierde ante agarre; parada pierde ante agarre."
 
@@ -576,6 +584,9 @@ func _toggle_duel_mode() -> void:
     if local_duel and campaign_mode:
         campaign_mode = false
         campaign_button.text = "CAMPAÑA: DESACTIVADA"
+        var profile := SaveSystemV2.load_profile()
+        profile["campaign_active"] = false
+        SaveSystemV2.save_profile(profile)
     duel_mode_button.text = "RIVAL: JUGADOR 2" if local_duel else "RIVAL: IA (CAMBIAR)"
     tutorial_label.text = "DUELO LOCAL: P1 A/D + J/K/L + F/E/ESPACIO; P2 FLECHAS + 1/2/3 + 4/5/6" if local_duel else "Lee al rival: bloqueo pierde ante agarre; parada pierde ante agarre.\nAmaga para provocar errores y castiga las esquivas."
 
