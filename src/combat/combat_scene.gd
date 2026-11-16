@@ -88,7 +88,7 @@ func _process(delta: float) -> void:
     if match_started and not match_over:
         elapsed_seconds += delta
         var remaining := maxi(0, int(ceil(ROUND_LIMIT_SECONDS - elapsed_seconds)))
-        timer_label.text = "R1  %02d:%02d" % [remaining / 60, remaining % 60]
+        timer_label.text = "R1  %02d:%02d" % [int(remaining / 60.0), remaining % 60]
         if elapsed_seconds >= ROUND_LIMIT_SECONDS:
             var player_fraction := hacker.health / maxf(1.0, hacker.max_health)
             var rival_fraction := chico.health / maxf(1.0, chico.max_health)
@@ -398,6 +398,7 @@ func _start_combat() -> void:
     match_started = true
     start_button.hide()
     loadout_button.hide()
+    loadout_label.hide()
     duel_mode_button.hide()
     tutorial_label.hide()
     combat_ai.set_physics_process(not local_duel)
@@ -452,7 +453,7 @@ func _finish(won: bool) -> void:
     combat_ai.set_physics_process(false)
     hacker.set_direction(0.0)
     chico.set_direction(0.0)
-    status_label.text = "GANASTE" if won else "PERDISTE"
+    status_label.text = ("GANA HACKER" if won else "GANA EL CHICO") if local_duel else ("GANASTE" if won else "PERDISTE")
     var winner := "HACKER" if won else "EL CHICO"
     var stats: Dictionary = fighter_stats[winner]
     status_label.text += " — La historia continúa"
