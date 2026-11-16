@@ -52,8 +52,12 @@ func opponent_for_fight(index: int) -> Dictionary:
 func record_choice(key: String, value: Variant) -> bool:
     if key.is_empty():
         return false
+    var previous: Dictionary = choices.duplicate(true)
     choices[key] = value
-    return save_progress()
+    if save_progress():
+        return true
+    choices = previous
+    return false
 
 func advance_narrative() -> bool:
     if scene_index >= SCENE_COUNT:
@@ -61,14 +65,21 @@ func advance_narrative() -> bool:
     if current_fight_index() >= 0 and not completed_fights.has(current_fight_index()):
         return false
     scene_index += 1
-    return save_progress()
+    if save_progress():
+        return true
+    scene_index -= 1
+    return false
 
 func record_fight_result(fight_index: int, won: bool) -> bool:
     if not won or fight_index != current_fight_index():
         return false
+    var previous_fights: Array[int] = completed_fights.duplicate()
     if not completed_fights.has(fight_index):
         completed_fights.append(fight_index)
-    return advance_narrative()
+    if advance_narrative():
+        return true
+    completed_fights = previous_fights
+    return false
 
 func is_chapter_complete() -> bool:
     return scene_index >= SCENE_COUNT
