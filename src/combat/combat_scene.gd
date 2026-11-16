@@ -29,6 +29,8 @@ var elapsed_seconds := 0.0
 var event_history: Array[Dictionary] = []
 var fighter_stats: Dictionary = {"HACKER": {"hits": 0, "dodges": 0, "parries": 0, "counters": 0, "combos": 0}, "EL CHICO": {"hits": 0, "dodges": 0, "parries": 0, "counters": 0, "combos": 0}}
 var timer_label: Label
+var restart_button: Button
+var tutorial_label: Label
 const MOVE_LABELS := {"jab": "JAB", "low_kick": "PATADA BAJA", "cross": "CROSS", "elbow": "CODAZO", "clinch": "CLINCH", "takedown": "DERRIBO"}
 const EVENT_LABELS := {
     "feint": "AMAGUE",
@@ -75,7 +77,7 @@ func _process(delta: float) -> void:
     hit_effect_time = maxf(0.0, hit_effect_time - delta)
     if match_started and not match_over:
         elapsed_seconds += delta
-        timer_label.text = "%02d:%02d" % [int(elapsed_seconds) / 60, int(elapsed_seconds) % 60]
+        timer_label.text = "%02d:%02d" % [int(elapsed_seconds / 60.0), int(elapsed_seconds) % 60]
     if match_over:
         return
     var keyboard_direction := 0.0
@@ -211,6 +213,13 @@ func _build_ui() -> void:
     timer_label.add_theme_font_size_override("font_size", 28)
     timer_label.text = "00:00"
     ui.add_child(timer_label)
+    tutorial_label = Label.new()
+    tutorial_label.position = Vector2(340, 265)
+    tutorial_label.size = Vector2(600, 65)
+    tutorial_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    tutorial_label.text = "Lee al rival: bloqueo pierde ante agarre; parada pierde ante agarre.\nAmaga para provocar errores y castiga las esquivas."
+    tutorial_label.add_theme_font_size_override("font_size", 19)
+    ui.add_child(tutorial_label)
     feed_label = Label.new()
     feed_label.position = Vector2(38, 117)
     feed_label.add_theme_font_size_override("font_size", 15)
@@ -223,6 +232,8 @@ func _build_ui() -> void:
     _button(ui, "▶", Vector2(143, 570), Vector2(92, 100), func(): movement = 1.0, func(): movement = 0.0)
     start_button = _button(ui, "INICIAR COMBATE", Vector2(460, 345), Vector2(360, 75), func(): _start_combat())
     start_button.add_theme_font_size_override("font_size", 25)
+    restart_button = _button(ui, "REPETIR COMBATE", Vector2(460, 350), Vector2(360, 75), func(): get_tree().reload_current_scene())
+    restart_button.hide()
     technique_buttons["light"] = _button(ui, "JAB", Vector2(875, 590), Vector2(110, 70), func(): hacker.quick_attack())
     technique_buttons["heavy"] = _button(ui, "CROSS", Vector2(995, 510), Vector2(110, 70), func(): hacker.heavy_attack())
     _button(ui, "ESQUIVA", Vector2(1120, 590), Vector2(120, 70), func(): hacker.dodge())
@@ -282,6 +293,7 @@ func _start_combat() -> void:
     match_started = true
     start_button.hide()
     loadout_button.hide()
+    tutorial_label.hide()
     combat_ai.set_physics_process(true)
 
 func _cycle_loadout() -> void:
@@ -338,3 +350,4 @@ func _finish(won: bool) -> void:
     var stats: Dictionary = fighter_stats[winner]
     status_label.text += " — La historia continúa"
     status_label.text += "\n%s: %d impactos · %d combos · %d esquivas · %d paradas · %d contras" % [winner, int(stats["hits"]), int(stats["combos"]), int(stats["dodges"]), int(stats["parries"]), int(stats["counters"])]
+    restart_button.show()
