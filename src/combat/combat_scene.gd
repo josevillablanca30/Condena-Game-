@@ -8,6 +8,7 @@ var match_over := false
 var ai_cooldown := 0.0
 var health_label: Label
 var status_label: Label
+var loadout_label: Label
 
 func _ready() -> void:
     hacker.opponent = chico
@@ -19,6 +20,7 @@ func _ready() -> void:
     chico.health = 620.0
     chico.defeated.connect(func(): _finish(true))
     _build_ui()
+    _refresh_loadout_label()
     var ai := AIElChico.new()
     ai.fighter = chico
     ai.target = hacker
@@ -74,7 +76,24 @@ func _build_ui() -> void:
     _button(ui, "FUERTE", Vector2(995, 510), Vector2(110, 70), func(): hacker.heavy_attack())
     _button(ui, "ESQUIVA", Vector2(1120, 590), Vector2(120, 70), func(): hacker.dodge())
     _button(ui, "AGARRE", Vector2(620, 590), Vector2(110, 70), func(): hacker.grab_attack())
+    loadout_label = Label.new()
+    loadout_label.position = Vector2(300, 535)
+    loadout_label.add_theme_font_size_override("font_size", 17)
+    ui.add_child(loadout_label)
+    _button(ui, "CAMBIAR TÉCNICAS", Vector2(300, 585), Vector2(290, 65), func(): _cycle_loadout())
     _button(ui, "BLOQUEO", Vector2(745, 510), Vector2(120, 70), func(): hacker.set_block(true), func(): hacker.set_block(false))
+
+func _cycle_loadout() -> void:
+    if match_over or hacker.busy:
+        return
+    var alternate := hacker.equipped_moves["light"] == "jab"
+    hacker.equip_move("light", "low_kick" if alternate else "jab")
+    hacker.equip_move("heavy", "elbow" if alternate else "cross")
+    hacker.equip_move("grapple", "takedown" if alternate else "clinch")
+    _refresh_loadout_label()
+
+func _refresh_loadout_label() -> void:
+    loadout_label.text = "Técnicas: %s / %s / %s" % [hacker.equipped_moves["light"], hacker.equipped_moves["heavy"], hacker.equipped_moves["grapple"]]
 
 func _button(parent: Control, caption: String, pos: Vector2, size: Vector2, pressed_action: Callable, released_action: Callable = Callable()) -> void:
     var b := Button.new()
