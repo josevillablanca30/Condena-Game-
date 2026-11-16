@@ -575,21 +575,46 @@ func _meter(parent: Control, pos: Vector2, size: Vector2, fill_color: Color) -> 
     bar.show_percentage = false
     bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
     var background_style := StyleBoxFlat.new()
-    background_style.bg_color = Color(0.15, 0.15, 0.15, 0.85)
+    background_style.bg_color = Color("#101519")
+    background_style.border_color = Color("#697276")
+    background_style.set_border_width_all(2)
+    background_style.set_corner_radius_all(3)
     var fill_style := StyleBoxFlat.new()
     fill_style.bg_color = fill_color
+    fill_style.set_corner_radius_all(2)
     bar.add_theme_stylebox_override("background", background_style)
     bar.add_theme_stylebox_override("fill", fill_style)
     parent.add_child(bar)
     return bar
+
+func _button_style(background: Color, border: Color) -> StyleBoxFlat:
+    var style := StyleBoxFlat.new()
+    style.bg_color = background
+    style.border_color = border
+    style.set_border_width_all(2)
+    style.set_corner_radius_all(8)
+    style.content_margin_left = 6.0
+    style.content_margin_right = 6.0
+    style.content_margin_top = 6.0
+    style.content_margin_bottom = 6.0
+    return style
 
 func _button(parent: Control, caption: String, pos: Vector2, size: Vector2, pressed_action: Callable, released_action: Callable = Callable()) -> Button:
     var b := Button.new()
     b.text = caption
     b.position = pos
     b.size = size
-    b.modulate.a = 0.88
     b.mouse_filter = Control.MOUSE_FILTER_STOP
+    b.add_theme_font_size_override("font_size", 17)
+    b.add_theme_color_override("font_color", Color("#f0e9dd"))
+    b.add_theme_color_override("font_hover_color", Color.WHITE)
+    b.add_theme_color_override("font_pressed_color", Color.WHITE)
+    b.add_theme_color_override("font_disabled_color", Color("#8c9091"))
+    b.add_theme_stylebox_override("normal", _button_style(Color("#192126"), Color("#667277")))
+    b.add_theme_stylebox_override("hover", _button_style(Color("#2a363b"), Color("#a4ada9")))
+    b.add_theme_stylebox_override("pressed", _button_style(Color("#6b3430"), Color("#d7a48a")))
+    b.add_theme_stylebox_override("disabled", _button_style(Color("#1b2022"), Color("#353c40")))
+    b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
     b.button_down.connect(pressed_action)
     if released_action.is_valid():
         b.button_up.connect(released_action)
