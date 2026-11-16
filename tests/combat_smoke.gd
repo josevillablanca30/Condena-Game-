@@ -56,6 +56,18 @@ func _run() -> void:
         _fail("El movimiento queda pegado al soltar el dedo")
         return
 
+    # La liberacion de un dedo no debe soltar la guardia si otro sigue sosteniendola.
+    arena.call("_begin_mobile_touch", 3, Vector2(780, 540))
+    arena.call("_begin_mobile_touch", 4, Vector2(780, 540))
+    arena.call("_end_mobile_touch", 3)
+    if not hacker.blocking:
+        _fail("La guardia se solto aunque quedaba otro dedo sosteniendola")
+        return
+    arena.call("_end_mobile_touch", 4)
+    if hacker.blocking:
+        _fail("La guardia no se libero al soltar el ultimo dedo")
+        return
+
     hacker.position.x = 500.0
     chico.position.x = 585.0
     var health_before: float = chico.health
