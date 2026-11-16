@@ -38,3 +38,9 @@ Todo implementado sin gastar créditos de generación ni ejecutar compras.
 - El archivo es **local**: no se transmite a servidores ni es todavía una repetición visual.
 - Smoke test ampliado para patada baja, derribo, historial y persistencia JSON.
 - **Estado:** cambios subidos al repositorio, sin ejecución Godot verificada en este entorno.
+
+## Cierre técnico de esta iteración
+- Se preparó un preset Android Debug ARM64 sin permiso de Internet; guía en `docs/EXPORT_ANDROID_DEBUG.md`.
+- Se añadió límite provisional de 90 segundos con decisión por porcentaje de salud restante; el empate favorece provisionalmente al jugador 1 y requiere revisión de diseño.
+- Para respetar el presupuesto cero, GitHub Actions quedó en **ejecución manual**: no consumir minutos de runner en cada commit.
+- No se ha generado APK ni se ha verificado un run de Godot; cualquier afirmación de versión jugable instalada debe esperar esas pruebas.
