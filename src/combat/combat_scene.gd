@@ -44,6 +44,7 @@ var match_result := ""
 var campaign_bridge: CampaignBridge
 var campaign_mode := false
 var campaign_button: Button
+var story_screen: CondenaStoryScreen
 var mobile_touch_actions: Dictionary = {}
 var mobile_movement_touches: Dictionary = {}
 var mobile_guard_touches: Dictionary = {}
@@ -83,6 +84,13 @@ func _ready() -> void:
     campaign_bridge = CampaignBridge.new()
     add_child(campaign_bridge)
     _build_ui()
+    story_screen = CondenaStoryScreen.new()
+    var story_layer := CanvasLayer.new()
+    story_layer.layer = 10
+    add_child(story_layer)
+    story_layer.add_child(story_screen)
+    story_screen.scene_finished.connect(_on_story_scene_finished)
+    story_screen.choice_selected.connect(func(key: String, value: String): campaign_bridge.campaign.record_choice(key, value))
     _refresh_loadout_label()
     combat_ai = AIElChico.new()
     combat_ai.fighter = chico
@@ -525,6 +533,31 @@ func _unhandled_key_input(event: InputEvent) -> void:
         KEY_E:
             hacker.feint()
 
+func _open_campaign_step() -> void:
+    var status := campaign_bridge.current_status()
+    if bool(status["finished"]):
+        status_label.text = "CAPÍTULO 1 COMPLETADO"
+        return
+    var scene_number := int(status["scene"]) + 1
+    if int(status["fight_index"]) >= 0:
+        _start_combat()
+        return
+    # Sin el guion aprobado, mostrar solamente una tarjeta de etapa.
+    # El flujo ya es funcional, sin inventar historia o dialogos.
+    story_screen.present("CAPÍTULO 1 — EL POLLO | ESCENA %d/9" % scene_number,
+        [{"speaker": "CONDENA", "text": "Contenido narrativo pendiente de incorporar desde el guion aprobado."}])
+
+func _on_story_scene_finished() -> void:
+    if not campaign_mode:
+        return
+    if campaign_bridge.advance_story_scene():
+        var status := campaign_bridge.current_status()
+        status_label.text = "ESCENA COMPLETADA — PROGRESO GUARDADO"
+        if bool(status["finished"]):
+            status_label.text = "CAPÍTULO 1 COMPLETADO"
+        else:
+            _open_campaign_step()
+
 func _toggle_campaign() -> void:
     if match_started or match_over:
         return
@@ -563,6 +596,9 @@ func _try_feint() -> void:
 
 func _start_combat() -> void:
     if match_started or match_over:
+        return
+    if campaign_mode and campaign_bridge.campaign.current_fight_index() < 0:
+        _open_campaign_step()
         return
     if campaign_mode:
         if not campaign_bridge.start_current_fight(hacker, chico):
@@ -695,7 +731,7 @@ func _finish_match(winner: String, result_title: String) -> void:
     if campaign_mode and winner != "EMPATE":
         var progressed := campaign_bridge.submit_combat_result(winner == "HACKER")
         if progressed:
-            status_label.text += "\nProgreso de campaña guardado."
+            status_label.text += "\nProgreso de campaña guardado. Reinicia para continuar."
 
 
 func _save_match_record(winner: String) -> void:
