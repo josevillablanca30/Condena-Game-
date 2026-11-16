@@ -104,10 +104,30 @@ func _process(delta: float) -> void:
     queue_redraw()
 
 func _draw() -> void:
-    draw_rect(Rect2(0, 0, 1280, 720), Color(0.09, 0.09, 0.09))
-    draw_rect(Rect2(0, 495, 1280, 225), Color(0.22, 0.22, 0.22))
+    # Patio de la carcel: arte procedural original sin assets ni creditos externos.
+    draw_rect(Rect2(0, 0, 1280, 720), Color(0.075, 0.075, 0.075))
+    draw_rect(Rect2(0, 0, 1280, 475), Color(0.13, 0.13, 0.13))
+    for x in range(0, 1280, 128):
+        draw_line(Vector2(x, 0), Vector2(x, 472), Color(0.19, 0.19, 0.19), 3.0)
+    for y in range(90, 475, 92):
+        draw_line(Vector2(0, y), Vector2(1280, y), Color(0.18, 0.18, 0.18), 2.0)
+    # Ventanas con barrotes y siluetas de publico en segundo plano.
+    for window_index in range(4):
+        var wx := 96.0 + float(window_index) * 312.0
+        draw_rect(Rect2(wx, 65, 170, 190), Color(0.035, 0.035, 0.035))
+        for bar_index in range(5):
+            var bx := wx + 18.0 + float(bar_index) * 33.0
+            draw_line(Vector2(bx, 65), Vector2(bx, 255), Color(0.38, 0.38, 0.38), 6.0)
+        draw_line(Vector2(wx, 170), Vector2(wx + 170, 170), Color(0.33, 0.33, 0.33), 5.0)
+    for crowd_index in range(15):
+        var sx := 32.0 + float(crowd_index) * 87.0
+        var sy := 412.0 + float(crowd_index % 3) * 11.0
+        draw_circle(Vector2(sx, sy - 38.0), 17.0, Color(0.065, 0.065, 0.065))
+        draw_rect(Rect2(sx - 22.0, sy - 20.0, 44.0, 67.0), Color(0.065, 0.065, 0.065))
+    draw_rect(Rect2(0, 480, 1280, 240), Color(0.22, 0.22, 0.22))
+    draw_line(Vector2(0, 480), Vector2(1280, 480), Color(0.5, 0.5, 0.5), 4.0)
     for x in range(0, 1280, 80):
-        draw_line(Vector2(x, 495), Vector2(x - 110, 720), Color(0.34, 0.34, 0.34), 1.0)
+        draw_line(Vector2(x, 480), Vector2(x - 110, 720), Color(0.32, 0.32, 0.32), 1.0)
     _draw_fighter(hacker, Color(0.88, 0.88, 0.88))
     _draw_fighter(chico, Color(0.55, 0.55, 0.55))
     if hit_effect_time > 0.0:
