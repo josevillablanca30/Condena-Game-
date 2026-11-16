@@ -84,5 +84,29 @@ func _run() -> void:
     if grab_result == "parried" or hacker.health >= grab_health:
         _fail("Un agarre no supero la parada")
         return
-    print("CONDENA SMOKE OK: escena, rivales, impactos, combos, bloqueo, amague, parada y agarre")
+    # Efectos secundarios de tecnicas equipables.
+    await create_timer(0.50).timeout
+    hacker.stamina = hacker.max_stamina
+    hacker.equip_move("light", "low_kick")
+    hacker.quick_attack()
+    await create_timer(0.50).timeout
+    if chico.leg_slow_time <= 0.0:
+        _fail("La patada baja no ralentizo al rival")
+        return
+    await create_timer(0.25).timeout
+    hacker.stamina = hacker.max_stamina
+    hacker.equip_move("grapple", "takedown")
+    hacker.grab_attack()
+    await create_timer(0.55).timeout
+    if chico.knockdown_time <= 0.0:
+        _fail("El derribo no produjo knockdown")
+        return
+
+    # El historial de la pelea se mantiene en memoria sin llamadas remotas.
+    var history: Array = arena.get("event_history")
+    if history.size() < 5:
+        _fail("No se registraron suficientes eventos de combate")
+        return
+
+    print("CONDENA SMOKE OK: escena, 1v1 local, golpes, combos, guardia, amague, parada, agarre, patada baja, derribo y eventos")
     quit(0)
