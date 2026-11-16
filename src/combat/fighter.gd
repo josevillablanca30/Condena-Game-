@@ -34,6 +34,7 @@ var recovery_time := 0.0
 var feint_window := 0.0
 var combo_hits := 0
 var combo_window := 0.0
+var counter_window := 0.0
 signal combo_changed(hits: int)
 signal confirmed_hit(move_id: String, target: CondenaFighter)
 signal combat_event(event_name: String, move_id: String)
@@ -86,6 +87,7 @@ func _physics_process(delta: float) -> void:
     recovery_time = maxf(0.0, recovery_time - delta)
     feint_window = maxf(0.0, feint_window - delta)
     combo_window = maxf(0.0, combo_window - delta)
+    counter_window = maxf(0.0, counter_window - delta)
     if combo_window <= 0.0 and combo_hits > 0:
         combo_hits = 0
         combo_changed.emit(0)
@@ -161,6 +163,8 @@ func _attack(move_id: String, cost: float, damage: float, reach: float, duration
     busy = true
     attack_serial += 1
     attack_kind = kind
+    var counter_armed := counter_window > 0.0
+    counter_window = 0.0
     combat_event.emit("attack_started", move_id)
     var serial := attack_serial
     var combo_damage_scale := maxf(0.60, 1.0 - float(combo_hits) * 0.12)
@@ -176,7 +180,7 @@ func _attack(move_id: String, cost: float, damage: float, reach: float, duration
         var contact := relative_x >= BODY_HALF_WIDTH and relative_x - BODY_HALF_WIDTH <= reach
         if contact and not opponent.invulnerable:
             var guarded_hit := opponent.blocking and kind != "grab"
-            opponent.receive_hit(damage * combo_damage_scale, kind, move_id)
+            opponent.receive_hit(damage * combo_damage_scale * (1.2 if counter_armed and not guarded_hit else 1.0), kind, move_id)
             if guarded_hit:
                 combo_hits = 0
                 combo_window = 0.0
@@ -186,9 +190,14 @@ func _attack(move_id: String, cost: float, damage: float, reach: float, duration
                 combo_hits = mini(combo_hits + 1, 5) if chained_hit else 1
                 combo_window = 0.85
                 combo_changed.emit(combo_hits)
+                if counter_armed:
+                    combat_event.emit("counter_hit", move_id)
                 combat_event.emit("combo_hit" if chained_hit else "hit_confirmed", move_id)
             confirmed_hit.emit(move_id, opponent)
         else:
+            if contact and opponent.invulnerable:
+                opponent.counter_window = maxf(opponent.counter_window, 0.65)
+                opponent.combat_event.emit("perfect_dodge", move_id)
             combo_hits = 0
             combo_window = 0.0
             combo_changed.emit(0)
