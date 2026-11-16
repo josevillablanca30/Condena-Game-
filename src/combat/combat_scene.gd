@@ -9,6 +9,8 @@ var ai_cooldown := 0.0
 var health_label: Label
 var status_label: Label
 var loadout_label: Label
+var technique_buttons: Dictionary = {}
+const MOVE_LABELS := {"jab": "JAB", "low_kick": "PATADA BAJA", "cross": "CROSS", "elbow": "CODAZO", "clinch": "CLINCH", "takedown": "DERRIBO"}
 
 func _ready() -> void:
     hacker.opponent = chico
@@ -33,6 +35,11 @@ func _process(delta: float) -> void:
     hacker.set_direction(movement)
     # La IA ahora se ejecuta desde AIElChico, sin duplicar ataques.
     health_label.text = "HACKER  %d HP | %d RES.            EL CHICO  %d HP" % [int(hacker.health), int(hacker.stamina), int(chico.health)]
+    for slot in technique_buttons:
+        var button: Button = technique_buttons[slot]
+        var move_id: String = str(hacker.equipped_moves[slot])
+        var cost: float = float(CondenaFighter.MOVE_DATA[move_id]["cost"])
+        button.disabled = match_over or hacker.dead or hacker.busy or hacker.stamina < cost
     queue_redraw()
 
 func _draw() -> void:
@@ -75,10 +82,10 @@ func _build_ui() -> void:
     ui.add_child(status_label)
     _button(ui, "◀", Vector2(38, 570), Vector2(92, 100), func(): movement = -1.0, func(): movement = 0.0)
     _button(ui, "▶", Vector2(143, 570), Vector2(92, 100), func(): movement = 1.0, func(): movement = 0.0)
-    _button(ui, "RÁPIDO", Vector2(875, 590), Vector2(110, 70), func(): hacker.quick_attack())
-    _button(ui, "FUERTE", Vector2(995, 510), Vector2(110, 70), func(): hacker.heavy_attack())
+    technique_buttons["light"] = _button(ui, "JAB", Vector2(875, 590), Vector2(110, 70), func(): hacker.quick_attack())
+    technique_buttons["heavy"] = _button(ui, "CROSS", Vector2(995, 510), Vector2(110, 70), func(): hacker.heavy_attack())
     _button(ui, "ESQUIVA", Vector2(1120, 590), Vector2(120, 70), func(): hacker.dodge())
-    _button(ui, "AGARRE", Vector2(620, 590), Vector2(110, 70), func(): hacker.grab_attack())
+    technique_buttons["grapple"] = _button(ui, "CLINCH", Vector2(620, 590), Vector2(110, 70), func(): hacker.grab_attack())
     loadout_label = Label.new()
     loadout_label.position = Vector2(300, 535)
     loadout_label.add_theme_font_size_override("font_size", 17)
@@ -97,8 +104,12 @@ func _cycle_loadout() -> void:
 
 func _refresh_loadout_label() -> void:
     loadout_label.text = "Técnicas: %s / %s / %s" % [hacker.equipped_moves["light"], hacker.equipped_moves["heavy"], hacker.equipped_moves["grapple"]]
+    for slot in technique_buttons:
+        var move_id: String = str(hacker.equipped_moves[slot])
+        var cost: int = int(CondenaFighter.MOVE_DATA[move_id]["cost"])
+        technique_buttons[slot].text = "%s\n%d RES." % [MOVE_LABELS[move_id], cost]
 
-func _button(parent: Control, caption: String, pos: Vector2, size: Vector2, pressed_action: Callable, released_action: Callable = Callable()) -> void:
+func _button(parent: Control, caption: String, pos: Vector2, size: Vector2, pressed_action: Callable, released_action: Callable = Callable()) -> Button:
     var b := Button.new()
     b.text = caption
     b.position = pos
@@ -108,6 +119,7 @@ func _button(parent: Control, caption: String, pos: Vector2, size: Vector2, pres
     if released_action.is_valid():
         b.button_up.connect(released_action)
     parent.add_child(b)
+    return b
 
 func _finish(won: bool) -> void:
     match_over = true
