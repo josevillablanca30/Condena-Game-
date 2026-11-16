@@ -540,6 +540,14 @@ func _finish_match(winner: String, result_title: String) -> void:
         return
     match_over = true
     match_result = winner
+    mobile_touch_actions.clear()
+    mobile_movement_touches.clear()
+    mobile_guard_touches.clear()
+    movement = 0.0
+    hacker.attack_serial += 1
+    chico.attack_serial += 1
+    hacker.set_physics_process(false)
+    chico.set_physics_process(false)
     combat_ai.set_physics_process(false)
     hacker.set_direction(0.0)
     chico.set_direction(0.0)
