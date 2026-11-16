@@ -12,7 +12,7 @@ var status_label: Label
 var loadout_label: Label
 var technique_buttons: Dictionary = {}
 var match_started := false
-var combat_ai: AIElChico
+var combat_ai: Node
 var start_button: Button
 var loadout_button: Button
 var hit_effect_time := 0.0
@@ -594,6 +594,22 @@ func _try_feint() -> void:
     if match_started and not match_over:
         hacker.feint()
 
+func _select_campaign_ai(index: int) -> void:
+    if is_instance_valid(combat_ai):
+        combat_ai.set_physics_process(false)
+        combat_ai.queue_free()
+    match index:
+        1:
+            combat_ai = AIElFlaco.new()
+        2:
+            combat_ai = AIPresoGrande.new()
+        _:
+            combat_ai = AIElChico.new()
+    combat_ai.fighter = chico
+    combat_ai.target = hacker
+    add_child(combat_ai)
+    combat_ai.set_physics_process(false)
+
 func _start_combat() -> void:
     if match_started or match_over:
         return
@@ -604,6 +620,7 @@ func _start_combat() -> void:
         if not campaign_bridge.start_current_fight(hacker, chico):
             status_label.text = "Completa las escenas narrativas antes del siguiente combate."
             return
+        _select_campaign_ai(campaign_bridge.active_fight_index)
         enemy_label.text = chico.fighter_name
         enemy_health_bar.max_value = chico.max_health
         enemy_health_bar.value = chico.health
