@@ -31,6 +31,8 @@ var fighter_stats: Dictionary = {"HACKER": {"hits": 0, "dodges": 0, "parries": 0
 var timer_label: Label
 var restart_button: Button
 var tutorial_label: Label
+var action_buttons: Array[Button] = []
+var broadcast_view := false
 const MOVE_LABELS := {"jab": "JAB", "low_kick": "PATADA BAJA", "cross": "CROSS", "elbow": "CODAZO", "clinch": "CLINCH", "takedown": "DERRIBO"}
 const EVENT_LABELS := {
     "feint": "AMAGUE",
@@ -279,6 +281,11 @@ func _unhandled_key_input(event: InputEvent) -> void:
         return
     if not key_event.pressed:
         return
+    if key_event.keycode == KEY_V and match_started and not match_over:
+        broadcast_view = not broadcast_view
+        for action_button in action_buttons:
+            action_button.visible = not broadcast_view
+        return
     if not match_started:
         if key_event.keycode == KEY_ENTER:
             _start_combat()
@@ -358,6 +365,7 @@ func _button(parent: Control, caption: String, pos: Vector2, size: Vector2, pres
     if released_action.is_valid():
         b.button_up.connect(released_action)
     parent.add_child(b)
+    action_buttons.append(b)
     return b
 
 func _finish(won: bool) -> void:
@@ -371,3 +379,4 @@ func _finish(won: bool) -> void:
     status_label.text += " — La historia continúa"
     status_label.text += "\n%s: %d impactos · %d combos · %d esquivas · %d paradas · %d contras" % [winner, int(stats["hits"]), int(stats["combos"]), int(stats["dodges"]), int(stats["parries"]), int(stats["counters"])]
     restart_button.show()
+    broadcast_view = false
