@@ -101,7 +101,7 @@ func heavy_attack() -> void:
     use_move("heavy")
 
 func dodge() -> void:
-    if dead or busy or blocking or knockdown_time > 0.0 or stamina < 18.0:
+    if dead or busy or blocking or stun_time > 0.0 or knockdown_time > 0.0 or stamina < 18.0:
         return
     stamina -= 18.0
     busy = true
@@ -161,6 +161,11 @@ func receive_hit(damage: float, kind: String = "quick", move_id: String = "") ->
         stun_time = 0.4
     if not guard_broken:
         stun_time = 0.12 if kind != "grab" else 0.3
+    # El golpe interrumpe el ataque rival antes de su ventana de contacto.
+    if busy and not blocking:
+        attack_serial += 1
+        busy = false
+        attack_kind = ""
     var guarded := blocking and kind != "grab"
     health = maxf(0.0, health - damage * (0.25 if guarded else 1.0))
     if move_id == "low_kick" and not guarded:
@@ -170,6 +175,9 @@ func receive_hit(damage: float, kind: String = "quick", move_id: String = "") ->
         stun_time = maxf(stun_time, 0.85)
     health_changed.emit(health)
     if health <= 0.0:
+        blocking = false
+        invulnerable = false
+        dodge_velocity = 0.0
         dead = true
         attack_serial += 1
         defeated.emit()
