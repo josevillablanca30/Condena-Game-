@@ -20,6 +20,10 @@ var hit_effect_label := ""
 var combat_feed: Array[String] = []
 var feed_label: Label
 var combo_label: Label
+var player_health_bar: ProgressBar
+var player_stamina_bar: ProgressBar
+var enemy_health_bar: ProgressBar
+var enemy_stamina_bar: ProgressBar
 const MOVE_LABELS := {"jab": "JAB", "low_kick": "PATADA BAJA", "cross": "CROSS", "elbow": "CODAZO", "clinch": "CLINCH", "takedown": "DERRIBO"}
 const EVENT_LABELS := {
     "feint": "AMAGUE",
@@ -65,7 +69,15 @@ func _process(delta: float) -> void:
         return
     hacker.set_direction(movement if match_started else 0.0)
     # La IA ahora se ejecuta desde AIElChico, sin duplicar ataques.
-    health_label.text = "HACKER  %d VIDA | %d RES.            EL CHICO  %d VIDA | %d RES." % [int(hacker.health), int(hacker.stamina), int(chico.health), int(chico.stamina)]
+    health_label.text = "HACKER                               EL CHICO"
+    player_health_bar.max_value = hacker.max_health
+    player_health_bar.value = hacker.health
+    player_stamina_bar.max_value = hacker.max_stamina
+    player_stamina_bar.value = hacker.stamina
+    enemy_health_bar.max_value = chico.max_health
+    enemy_health_bar.value = chico.health
+    enemy_stamina_bar.max_value = chico.max_stamina
+    enemy_stamina_bar.value = chico.stamina
     for slot in technique_buttons:
         var button: Button = technique_buttons[slot]
         var move_id: String = str(hacker.equipped_moves[slot])
@@ -147,14 +159,18 @@ func _build_ui() -> void:
     layer.add_child(ui)
     health_label = Label.new()
     health_label.position = Vector2(36, 25)
-    health_label.add_theme_font_size_override("font_size", 25)
+    health_label.add_theme_font_size_override("font_size", 22)
     ui.add_child(health_label)
+    player_health_bar = _meter(ui, Vector2(36, 61), Vector2(310, 19), Color(0.88, 0.88, 0.88))
+    player_stamina_bar = _meter(ui, Vector2(36, 85), Vector2(310, 12), Color(0.66, 0.66, 0.66))
+    enemy_health_bar = _meter(ui, Vector2(934, 61), Vector2(310, 19), Color(0.88, 0.88, 0.88))
+    enemy_stamina_bar = _meter(ui, Vector2(934, 85), Vector2(310, 12), Color(0.66, 0.66, 0.66))
     status_label = Label.new()
     status_label.position = Vector2(435, 100)
     status_label.add_theme_font_size_override("font_size", 30)
     ui.add_child(status_label)
     feed_label = Label.new()
-    feed_label.position = Vector2(38, 85)
+    feed_label.position = Vector2(38, 117)
     feed_label.add_theme_font_size_override("font_size", 15)
     ui.add_child(feed_label)
     combo_label = Label.new()
@@ -204,6 +220,21 @@ func _refresh_loadout_label() -> void:
         var move_id: String = str(hacker.equipped_moves[slot])
         var cost: int = int(CondenaFighter.MOVE_DATA[move_id]["cost"])
         technique_buttons[slot].text = "%s\n%d RES." % [MOVE_LABELS[move_id], cost]
+
+func _meter(parent: Control, pos: Vector2, size: Vector2, fill_color: Color) -> ProgressBar:
+    var bar := ProgressBar.new()
+    bar.position = pos
+    bar.size = size
+    bar.show_percentage = false
+    bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    var background_style := StyleBoxFlat.new()
+    background_style.bg_color = Color(0.15, 0.15, 0.15, 0.85)
+    var fill_style := StyleBoxFlat.new()
+    fill_style.bg_color = fill_color
+    bar.add_theme_stylebox_override("background", background_style)
+    bar.add_theme_stylebox_override("fill", fill_style)
+    parent.add_child(bar)
+    return bar
 
 func _button(parent: Control, caption: String, pos: Vector2, size: Vector2, pressed_action: Callable, released_action: Callable = Callable()) -> Button:
     var b := Button.new()
