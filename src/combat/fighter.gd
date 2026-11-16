@@ -35,6 +35,8 @@ var feint_window := 0.0
 var combo_hits := 0
 var combo_window := 0.0
 var counter_window := 0.0
+var parry_window := 0.0
+var parry_recovery := 0.0
 signal combo_changed(hits: int)
 signal confirmed_hit(move_id: String, target: CondenaFighter)
 signal combat_event(event_name: String, move_id: String)
@@ -88,6 +90,8 @@ func _physics_process(delta: float) -> void:
     feint_window = maxf(0.0, feint_window - delta)
     combo_window = maxf(0.0, combo_window - delta)
     counter_window = maxf(0.0, counter_window - delta)
+    parry_window = maxf(0.0, parry_window - delta)
+    parry_recovery = maxf(0.0, parry_recovery - delta)
     if combo_window <= 0.0 and combo_hits > 0:
         combo_hits = 0
         combo_changed.emit(0)
@@ -115,6 +119,26 @@ func set_block(value: bool) -> void:
     if dead:
         return
     blocking = value and not busy and knockdown_time <= 0.0 and stun_time <= 0.0
+
+func parry() -> void:
+    # Defensa activa de alto riesgo: solo 0.16 s para leer un golpe.
+    # Los agarres la superan; fallarla deja recuperacion castigable.
+    if dead or busy or blocking or stun_time > 0.0 or knockdown_time > 0.0 or recovery_time > 0.0 or stamina < 14.0:
+        return
+    stamina -= 14.0
+    busy = true
+    attack_serial += 1
+    var serial := attack_serial
+    parry_window = 0.16
+    combat_event.emit("parry_attempt", "")
+    await get_tree().create_timer(0.16).timeout
+    if not is_inside_tree() or dead or serial != attack_serial:
+        return
+    parry_window = 0.0
+    await get_tree().create_timer(0.20).timeout
+    if is_inside_tree() and not dead and serial == attack_serial:
+        busy = false
+        recovery_time = maxf(recovery_time, 0.20)
 
 func quick_attack() -> void:
     use_move("light")
@@ -180,8 +204,19 @@ func _attack(move_id: String, cost: float, damage: float, reach: float, duration
         var contact := relative_x >= BODY_HALF_WIDTH and relative_x - BODY_HALF_WIDTH <= reach
         if contact and not opponent.invulnerable:
             var guarded_hit := opponent.blocking and kind != "grab"
-            opponent.receive_hit(damage * combo_damage_scale * (1.2 if counter_armed and not guarded_hit else 1.0), kind, move_id)
-            if guarded_hit:
+            var result: String = opponent.receive_hit(damage * combo_damage_scale * (1.2 if counter_armed and not guarded_hit else 1.0), kind, move_id)
+            if result == "parried":
+                combo_hits = 0
+                combo_window = 0.0
+                combo_changed.emit(0)
+                stun_time = maxf(stun_time, 0.38)
+                attack_serial += 1
+                busy = false
+                attack_kind = ""
+                recovery_time = maxf(recovery_time, 0.38)
+                combat_event.emit("attack_parried", move_id)
+                return
+            if result == "guarded":
                 combo_hits = 0
                 combo_window = 0.0
                 combo_changed.emit(0)
@@ -208,9 +243,16 @@ func _attack(move_id: String, cost: float, damage: float, reach: float, duration
         attack_kind = ""
         recovery_time = 0.10 if kind == "quick" else 0.20
 
-func receive_hit(damage: float, kind: String = "quick", move_id: String = "") -> void:
+func receive_hit(damage: float, kind: String = "quick", move_id: String = "") -> String:
     if dead or invulnerable:
-        return
+        return "evaded"
+    if parry_window > 0.0 and kind != "grab":
+        parry_window = 0.0
+        attack_serial += 1
+        busy = false
+        counter_window = maxf(counter_window, 0.90)
+        combat_event.emit("perfect_parry", move_id)
+        return "parried"
     # La guardia absorbe daño pero no es universal: los agarres la superan.
     var was_blocking := blocking
     var guard_broken := false
@@ -256,3 +298,4 @@ func receive_hit(damage: float, kind: String = "quick", move_id: String = "") ->
         dead = true
         attack_serial += 1
         defeated.emit()
+    return "guarded" if guarded else "hit"
