@@ -60,5 +60,19 @@ func _run() -> void:
         _fail("El amague infligio daño")
         return
 
-    print("CONDENA SMOKE OK: escena, rivales, golpes, combos, bloqueo y amague")
+    await create_timer(0.20).timeout
+    var parry_health: float = hacker.health
+    hacker.parry()
+    var parry_result: String = hacker.receive_hit(15.0, "heavy", "cross")
+    if parry_result != "parried" or hacker.health != parry_health or hacker.counter_window <= 0.0:
+        _fail("La parada perfecta no nego daño o no habilito contraataque")
+        return
+    await create_timer(0.40).timeout
+    var grab_health: float = hacker.health
+    hacker.parry()
+    var grab_result: String = hacker.receive_hit(8.0, "grab", "clinch")
+    if grab_result == "parried" or hacker.health >= grab_health:
+        _fail("Un agarre no supero la parada")
+        return
+    print("CONDENA SMOKE OK: escena, rivales, impactos, combos, bloqueo, amague, parada y agarre")
     quit(0)
