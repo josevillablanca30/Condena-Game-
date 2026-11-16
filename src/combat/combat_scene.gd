@@ -483,7 +483,7 @@ func _start_combat() -> void:
 func _cycle_loadout() -> void:
     if match_started or match_over or hacker.busy:
         return
-    var alternate := hacker.equipped_moves["light"] == "jab"
+    var alternate: bool = hacker.equipped_moves["light"] == "jab"
     hacker.equip_move("light", "low_kick" if alternate else "jab")
     hacker.equip_move("heavy", "elbow" if alternate else "cross")
     hacker.equip_move("grapple", "takedown" if alternate else "clinch")
