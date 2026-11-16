@@ -17,6 +17,8 @@ var loadout_button: Button
 var hit_effect_time := 0.0
 var hit_effect_position := Vector2.ZERO
 var hit_effect_label := ""
+var combat_feed: Array[String] = []
+var feed_label: Label
 const MOVE_LABELS := {"jab": "JAB", "low_kick": "PATADA BAJA", "cross": "CROSS", "elbow": "CODAZO", "clinch": "CLINCH", "takedown": "DERRIBO"}
 
 func _ready() -> void:
@@ -30,6 +32,8 @@ func _ready() -> void:
     chico.defeated.connect(func(): _finish(true))
     hacker.confirmed_hit.connect(_on_confirmed_hit)
     chico.confirmed_hit.connect(_on_confirmed_hit)
+    hacker.combat_event.connect(func(event_name: String, move_id: String): _record_event("HACKER", event_name, move_id))
+    chico.combat_event.connect(func(event_name: String, move_id: String): _record_event("EL CHICO", event_name, move_id))
     _build_ui()
     _refresh_loadout_label()
     combat_ai = AIElChico.new()
@@ -64,6 +68,14 @@ func _draw() -> void:
         var strength := hit_effect_time / 0.18
         draw_arc(hit_effect_position, 24.0 + (1.0 - strength) * 18.0, 0.0, TAU, 20, Color(1.0, 0.94, 0.75, strength), 4.0)
         draw_line(hit_effect_position + Vector2(-32, -25), hit_effect_position + Vector2(32, 25), Color(1.0, 1.0, 1.0, strength), 3.0)
+
+func _record_event(actor: String, event_name: String, move_id: String) -> void:
+    var entry := "%s: %s %s" % [actor, event_name, move_id]
+    combat_feed.push_front(entry)
+    if combat_feed.size() > 4:
+        combat_feed.pop_back()
+    if feed_label != null:
+        feed_label.text = "\n".join(combat_feed)
 
 func _on_confirmed_hit(move_id: String, target: CondenaFighter) -> void:
     hit_effect_position = target.position + Vector2(0, -48)
@@ -100,6 +112,10 @@ func _build_ui() -> void:
     status_label.position = Vector2(435, 100)
     status_label.add_theme_font_size_override("font_size", 30)
     ui.add_child(status_label)
+    feed_label = Label.new()
+    feed_label.position = Vector2(38, 85)
+    feed_label.add_theme_font_size_override("font_size", 15)
+    ui.add_child(feed_label)
     _button(ui, "◀", Vector2(38, 570), Vector2(92, 100), func(): movement = -1.0, func(): movement = 0.0)
     _button(ui, "▶", Vector2(143, 570), Vector2(92, 100), func(): movement = 1.0, func(): movement = 0.0)
     start_button = _button(ui, "INICIAR COMBATE", Vector2(460, 345), Vector2(360, 75), func(): _start_combat())
@@ -113,6 +129,7 @@ func _build_ui() -> void:
     loadout_label.add_theme_font_size_override("font_size", 17)
     ui.add_child(loadout_label)
     loadout_button = _button(ui, "CAMBIAR TÉCNICAS", Vector2(300, 585), Vector2(290, 65), func(): _cycle_loadout())
+    _button(ui, "AMAGUE", Vector2(500, 500), Vector2(115, 65), func(): if match_started and not match_over: hacker.feint())
     _button(ui, "BLOQUEO", Vector2(745, 510), Vector2(120, 70), func(): hacker.set_block(true), func(): hacker.set_block(false))
 
 func _start_combat() -> void:
