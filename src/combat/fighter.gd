@@ -40,6 +40,8 @@ var parry_recovery := 0.0
 var hit_reaction_time := 0.0
 var attack_pose_time := 0.0
 var active_move_id := ""
+var last_hit_result := ""
+var combat_clock := 0.0
 signal combo_changed(hits: int)
 signal confirmed_hit(move_id: String, target: CondenaFighter)
 signal combat_event(event_name: String, move_id: String)
@@ -86,6 +88,7 @@ func _physics_process(delta: float) -> void:
     if dead:
         velocity = Vector2.ZERO
         return
+    combat_clock += delta
     stun_time = maxf(0.0, stun_time - delta)
     leg_slow_time = maxf(0.0, leg_slow_time - delta)
     knockdown_time = maxf(0.0, knockdown_time - delta)
@@ -210,7 +213,6 @@ func _attack(move_id: String, cost: float, damage: float, reach: float, duration
         var relative_x := (opponent.position.x - position.x) * locked_facing
         var contact := relative_x >= BODY_HALF_WIDTH and relative_x - BODY_HALF_WIDTH <= reach
         if contact and not opponent.invulnerable:
-            var guarded_hit := opponent.blocking and kind != "grab"
             var result: String = opponent.receive_hit(damage * combo_damage_scale * (1.2 if counter_armed and not guarded_hit else 1.0), kind, move_id)
             if result == "parried":
                 combo_hits = 0
@@ -256,6 +258,7 @@ func _attack(move_id: String, cost: float, damage: float, reach: float, duration
 
 func receive_hit(damage: float, kind: String = "quick", move_id: String = "") -> String:
     if dead or invulnerable:
+        last_hit_result = "evaded"
         return "evaded"
     if parry_window > 0.0 and kind != "grab":
         parry_window = 0.0
@@ -263,6 +266,7 @@ func receive_hit(damage: float, kind: String = "quick", move_id: String = "") ->
         busy = false
         counter_window = maxf(counter_window, 0.90)
         combat_event.emit("perfect_parry", move_id)
+        last_hit_result = "parried"
         return "parried"
     hit_reaction_time = 0.24
     # La guardia absorbe daño pero no es universal: los agarres la superan.
@@ -312,4 +316,5 @@ func receive_hit(damage: float, kind: String = "quick", move_id: String = "") ->
         dead = true
         attack_serial += 1
         defeated.emit()
-    return "guarded" if guarded else "hit"
+    last_hit_result = "guarded" if guarded else "hit"
+    return last_hit_result
