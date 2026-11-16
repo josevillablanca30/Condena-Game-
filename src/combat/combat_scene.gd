@@ -10,6 +10,9 @@ var health_label: Label
 var status_label: Label
 var loadout_label: Label
 var technique_buttons: Dictionary = {}
+var hit_effect_time := 0.0
+var hit_effect_position := Vector2.ZERO
+var hit_effect_label := ""
 const MOVE_LABELS := {"jab": "JAB", "low_kick": "PATADA BAJA", "cross": "CROSS", "elbow": "CODAZO", "clinch": "CLINCH", "takedown": "DERRIBO"}
 
 func _ready() -> void:
@@ -21,6 +24,8 @@ func _ready() -> void:
     hacker.health = 740.0
     chico.health = 620.0
     chico.defeated.connect(func(): _finish(true))
+    hacker.confirmed_hit.connect(_on_confirmed_hit)
+    chico.confirmed_hit.connect(_on_confirmed_hit)
     _build_ui()
     _refresh_loadout_label()
     var ai := AIElChico.new()
@@ -30,6 +35,7 @@ func _ready() -> void:
     queue_redraw()
 
 func _process(delta: float) -> void:
+    hit_effect_time = maxf(0.0, hit_effect_time - delta)
     if match_over:
         return
     hacker.set_direction(movement)
@@ -49,6 +55,15 @@ func _draw() -> void:
         draw_line(Vector2(x, 495), Vector2(x - 110, 720), Color(0.34, 0.34, 0.34), 1.0)
     _draw_fighter(hacker, Color(0.88, 0.88, 0.88))
     _draw_fighter(chico, Color(0.55, 0.55, 0.55))
+    if hit_effect_time > 0.0:
+        var strength := hit_effect_time / 0.18
+        draw_arc(hit_effect_position, 24.0 + (1.0 - strength) * 18.0, 0.0, TAU, 20, Color(1.0, 0.94, 0.75, strength), 4.0)
+        draw_line(hit_effect_position + Vector2(-32, -25), hit_effect_position + Vector2(32, 25), Color(1.0, 1.0, 1.0, strength), 3.0)
+
+func _on_confirmed_hit(move_id: String, target: CondenaFighter) -> void:
+    hit_effect_position = target.position + Vector2(0, -48)
+    hit_effect_time = 0.18
+    hit_effect_label = move_id
 
 func _draw_fighter(fighter: CondenaFighter, tint: Color) -> void:
     var p := fighter.position
