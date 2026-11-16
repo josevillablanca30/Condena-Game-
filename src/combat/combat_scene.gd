@@ -93,8 +93,8 @@ func _ready() -> void:
     story_screen.choice_selected.connect(func(key: String, value: String): campaign_bridge.campaign.record_choice(key, value))
     _refresh_loadout_label()
     combat_ai = AIElChico.new()
-    combat_ai.fighter = chico
-    combat_ai.target = hacker
+    combat_ai.set("fighter", chico)
+    combat_ai.set("target", hacker)
     add_child(combat_ai)
     combat_ai.set_physics_process(false)
     queue_redraw()
@@ -605,8 +605,8 @@ func _select_campaign_ai(index: int) -> void:
             combat_ai = AIPresoGrande.new()
         _:
             combat_ai = AIElChico.new()
-    combat_ai.fighter = chico
-    combat_ai.target = hacker
+    combat_ai.set("fighter", chico)
+    combat_ai.set("target", hacker)
     add_child(combat_ai)
     combat_ai.set_physics_process(false)
 
