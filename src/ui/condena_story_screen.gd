@@ -101,6 +101,13 @@ func _choose(key: String, value: String) -> void:
         return
     waiting_for_choice = false
     choice_selected.emit(key, value)
+    var entry: Dictionary = lines[line_index]
+    for option in entry.get("choices", []):
+        if option is Dictionary and str(option.get("id", "")) == key and str(option.get("value", "")) == value:
+            var reply := str(option.get("reply", ""))
+            if not reply.is_empty():
+                lines.insert(line_index + 1, {"speaker": entry.get("speaker", ""), "text": reply})
+            break
     _next_line()
 
 func _next_line() -> void:
