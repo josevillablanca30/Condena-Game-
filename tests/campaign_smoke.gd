@@ -10,8 +10,8 @@ func _run() -> void:
     assert(campaign.scene_index == 0)
     assert(campaign.current_fight_index() == -1)
     assert(campaign.fight_index_for_scene(2) == 0)
-    assert(campaign.fight_index_for_scene(5) == 1)
-    assert(campaign.fight_index_for_scene(8) == 2)
+    assert(campaign.fight_index_for_scene(4) == 1)
+    assert(campaign.fight_index_for_scene(7) == 2)
     assert(campaign.opponent_for_fight(0)["id"] == "el_chico")
     assert(campaign.opponent_for_fight(1)["id"] == "el_flaco")
     assert(campaign.opponent_for_fight(2)["id"] == "preso_grande")
@@ -19,7 +19,10 @@ func _run() -> void:
     # Sin persistencia: comprobar el avance de estado directamente.
     campaign.scene_index = 2
     assert(campaign.current_fight_index() == 0)
-    assert(not campaign.record_fight_result(0, false))
+    assert(campaign.record_fight_result(0, false))
+    assert(campaign.scene_index == 3)
+    assert(campaign.choices["fight_0_won"] == false)
+    campaign.scene_index = 2
     assert(not campaign.advance_narrative())
     assert(campaign.scene_index == 2)
     campaign.completed_fights.append(0)
