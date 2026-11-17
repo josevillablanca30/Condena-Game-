@@ -545,15 +545,19 @@ func _open_campaign_step() -> void:
         return
     var scene_number := int(status["scene"]) + 1
     if int(status["fight_index"]) >= 0:
+        if scene_number == 5 and not campaign_bridge.campaign.choices.has("flaco"):
+            story_screen.present("ESCENA 05 — LA SEGUNDA PRUEBA", CondenaChapterOneScript.lines_for(4))
+            return
         _start_combat()
         return
-    # Sin el guion aprobado, mostrar solamente una tarjeta de etapa.
-    # El flujo ya es funcional, sin inventar historia o dialogos.
-    story_screen.present("CAPÍTULO 1 — EL POLLO | ESCENA %d/9" % scene_number,
-        [{"speaker": "CONDENA", "text": "Contenido narrativo pendiente de incorporar desde el guion aprobado."}])
+    story_screen.present("CAPÍTULO 1 — EL POLLO | %s" % CondenaChapterOneScript.title_for(scene_number - 1),
+        CondenaChapterOneScript.lines_for(scene_number - 1))
 
 func _on_story_scene_finished() -> void:
     if not campaign_mode:
+        return
+    if campaign_bridge.campaign.current_fight_index() >= 0:
+        _start_combat()
         return
     if campaign_bridge.advance_story_scene():
         var status := campaign_bridge.current_status()
@@ -624,7 +628,7 @@ func _select_campaign_ai(index: int) -> void:
 func _start_combat() -> void:
     if match_started or match_over:
         return
-    if campaign_mode and campaign_bridge.campaign.current_fight_index() < 0:
+    if campaign_mode and (campaign_bridge.campaign.current_fight_index() < 0 or (campaign_bridge.campaign.scene_index == 4 and not campaign_bridge.campaign.choices.has("flaco"))):
         _open_campaign_step()
         return
     if campaign_mode:
