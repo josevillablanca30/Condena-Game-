@@ -23,8 +23,8 @@ func _run() -> void:
     assert(campaign.scene_index == 3)
     assert(campaign.choices["fight_0_won"] == false)
     campaign.scene_index = 2
-    assert(not campaign.advance_narrative())
-    assert(campaign.scene_index == 2)
+    assert(campaign.advance_narrative())
+    assert(campaign.scene_index == 3)
     campaign.completed_fights.append(0)
     assert(campaign.fight_index_for_scene(5) == 1)
     assert(campaign.opponent_for_fight(-1).is_empty())
