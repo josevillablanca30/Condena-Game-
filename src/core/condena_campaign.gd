@@ -5,7 +5,7 @@ class_name CondenaCampaign
 # por separado: este archivo no inventa escenas ni dialogos.
 const CHAPTER_ID := "el_pollo"
 const SCENE_COUNT := 9
-const FIGHT_SCENES := [2, 5, 8]
+const FIGHT_SCENES := [2, 4, 7]
 const SAVE_KEY := "campaign"
 const OPPONENTS := [
     {"id": "el_chico", "name": "EL CHICO", "health": 115.0, "speed": 160.0, "damage": 8.0},
