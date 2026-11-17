@@ -71,14 +71,17 @@ func advance_narrative() -> bool:
     return false
 
 func record_fight_result(fight_index: int, won: bool) -> bool:
-    if not won or fight_index != current_fight_index():
+    if fight_index != current_fight_index():
         return false
     var previous_fights: Array[int] = completed_fights.duplicate()
+    var previous_choices := choices.duplicate(true)
+    choices["fight_%d_won" % fight_index] = won
     if not completed_fights.has(fight_index):
         completed_fights.append(fight_index)
     if advance_narrative():
         return true
     completed_fights = previous_fights
+    choices = previous_choices
     return false
 
 func is_chapter_complete() -> bool:
