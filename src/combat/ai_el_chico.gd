@@ -29,7 +29,7 @@ func _physics_process(delta: float) -> void:
         fighter.set_block(true)
         return
     fighter.set_block(false)
-    fighter.set_direction(signf(distance) if gap > 90.0 else 0.0)
+    fighter.set_direction(signf(distance) if gap > (70.0 if target.blocking else 90.0) else 0.0)
     if decision_time <= 0.0 and gap <= 125.0 and not fighter.busy:
         decision_time = randf_range(0.45, 0.95)
         if target.blocking and gap <= 75.0 and fighter.stamina >= 25.0:

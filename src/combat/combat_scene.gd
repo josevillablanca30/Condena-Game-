@@ -44,11 +44,16 @@ var match_result := ""
 var campaign_bridge: CampaignBridge
 var campaign_mode := false
 var campaign_button: Button
+var selection := preload("res://src/ui/technique_select.gd").new()
+var hud := CanvasLayer.new()
+var continue_chapter := false
+var prepared := false
+var trigger_down := false
 var story_screen: CondenaStoryScreen
 var mobile_touch_actions: Dictionary = {}
 var mobile_movement_touches: Dictionary = {}
 var mobile_guard_touches: Dictionary = {}
-const MOVE_LABELS := {"jab": "JAB", "low_kick": "PATADA BAJA", "cross": "CROSS", "elbow": "CODAZO", "clinch": "CLINCH", "takedown": "DERRIBO"}
+
 const EVENT_LABELS := {
     "feint": "AMAGUE",
     "attack_started": "ATAQUE",
@@ -89,10 +94,18 @@ func _ready() -> void:
     story_layer.layer = 10
     add_child(story_layer)
     story_layer.add_child(story_screen)
+    story_layer.add_child(selection)
+    selection.visibility_changed.connect(_sync_hud)
+    story_screen.visibility_changed.connect(_sync_hud)
+    selection.confirmed.connect(_confirm_techniques)
     story_screen.scene_finished.connect(_on_story_scene_finished)
-    story_screen.choice_selected.connect(func(key: String, value: String): campaign_bridge.campaign.record_choice(key, value))
+    story_screen.save_choice = campaign_bridge.campaign.record_choice
+    var saved: Dictionary = SaveSystemV2.load_profile().get("techniques", {})
+    for slot in CondenaFighter.MOVE_SLOTS:
+        if saved.has(slot):
+            hacker.equip_move(slot, str(saved[slot]))
     _refresh_loadout_label()
-    campaign_mode = bool(SaveSystemV2.load_profile().get("campaign_active", false))
+    campaign_mode = bool(SaveSystemV2.load_profile().get("campaign_active", true))
     if campaign_mode:
         campaign_button.text = "CAMPAÑA: ACTIVADA"
         var status := campaign_bridge.current_status()
@@ -102,9 +115,24 @@ func _ready() -> void:
     combat_ai.set("target", hacker)
     add_child(combat_ai)
     combat_ai.set_physics_process(false)
+    for b in action_buttons:
+        b.visible = b in [start_button, duel_mode_button, campaign_button, loadout_button]
+    start_button.text = "CONTINUAR CAMPAÑA" if campaign_mode else "INICIAR COMBATE"
+    loadout_label.hide()
+    loadout_button.visible = not campaign_mode
+    start_button.grab_focus()
+    if campaign_mode and get_tree().get_meta("resume_condena", false):
+        get_tree().remove_meta("resume_condena")
+        _open_campaign_step()
     queue_redraw()
 
+func _sync_hud() -> void:
+    hud.visible = not selection.visible and not story_screen.visible
+
 func _input(event: InputEvent) -> void:
+    if match_started and not match_over and _handle_pad(event):
+        get_viewport().set_input_as_handled()
+        return
     if not OS.has_feature("android") or not match_started or match_over:
         return
     if event is InputEventScreenTouch:
@@ -120,6 +148,27 @@ func _input(event: InputEvent) -> void:
         if mobile_movement_touches.has(drag.index):
             mobile_movement_touches[drag.index] = _movement_at(location)
             _refresh_mobile_direction()
+
+func _handle_pad(event: InputEvent) -> bool:
+    if event is InputEventJoypadMotion and event.axis == JOY_AXIS_TRIGGER_RIGHT:
+        if event.axis_value > 0.55 and not trigger_down:
+            hacker.grab_attack()
+        trigger_down = event.axis_value > 0.55
+        return true
+    if not event is InputEventJoypadButton:
+        return false
+    if event.button_index == JOY_BUTTON_LEFT_SHOULDER:
+        hacker.set_block(event.pressed)
+    elif event.pressed:
+        match event.button_index:
+            JOY_BUTTON_A: hacker.basic_attack()
+            JOY_BUTTON_RIGHT_STICK: hacker.basic_heavy()
+            JOY_BUTTON_X: hacker.quick_attack()
+            JOY_BUTTON_Y: hacker.heavy_attack()
+            JOY_BUTTON_B: hacker.dodge()
+            JOY_BUTTON_RIGHT_SHOULDER: hacker.parry()
+            JOY_BUTTON_LEFT_STICK: hacker.feint()
+    return true
 
 func _touch_to_viewport(screen_point: Vector2) -> Vector2:
     return get_viewport().get_canvas_transform().affine_inverse() * screen_point
@@ -196,6 +245,11 @@ func _process(delta: float) -> void:
         keyboard_direction -= 1.0
     if Input.is_key_pressed(KEY_D) or (not local_duel and Input.is_key_pressed(KEY_RIGHT)):
         keyboard_direction += 1.0
+    var pads := Input.get_connected_joypads()
+    if not pads.is_empty():
+        var axis := Input.get_joy_axis(pads[0], JOY_AXIS_LEFT_X)
+        if absf(axis) > 0.2:
+            keyboard_direction += axis
     hacker.set_direction(clampf(movement + keyboard_direction, -1.0, 1.0) if match_started else 0.0)
     if match_started and local_duel:
         var rival_direction := 0.0
@@ -218,7 +272,7 @@ func _process(delta: float) -> void:
         var button: Button = technique_buttons[slot]
         var move_id: String = str(hacker.equipped_moves[slot])
         var cost: float = float(CondenaFighter.MOVE_DATA[move_id]["cost"])
-        button.disabled = not match_started or match_over or hacker.dead or hacker.busy or hacker.stamina < cost
+        button.disabled = not match_started or match_over or not hacker.can_attack(cost)
     queue_redraw()
 
 func _draw() -> void:
@@ -284,7 +338,7 @@ func _update_combo(hits: int) -> void:
         combo_label.text = "COMBO x%d" % hits if hits >= 2 else ""
 
 func _record_event(actor: String, event_name: String, move_id: String) -> void:
-    var technique := str(MOVE_LABELS.get(move_id, move_id))
+    var technique := str(CondenaFighter.MOVE_LABELS.get(move_id, move_id))
     var entry := "%s: %s %s" % [actor, str(EVENT_LABELS.get(event_name, event_name)), technique]
     event_history.append({"time": snappedf(elapsed_seconds, 0.01), "fighter": actor, "event": event_name, "move": move_id})
     var stats: Dictionary = fighter_stats[actor]
@@ -419,12 +473,11 @@ func _draw_fighter(fighter: CondenaFighter, tint: Color) -> void:
     draw_line(upper + Vector2(-26, -59), upper + Vector2(-27, 11), Color(0.82, 0.77, 0.66, 0.35), 2.0)
 
 func _build_ui() -> void:
-    var layer := CanvasLayer.new()
-    add_child(layer)
+    add_child(hud)
     var ui := Control.new()
     ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    layer.add_child(ui)
+    hud.add_child(ui)
     health_label = Label.new()
     health_label.position = Vector2(36, 25)
     health_label.add_theme_font_size_override("font_size", 22)
@@ -468,7 +521,7 @@ func _build_ui() -> void:
     start_button.add_theme_font_size_override("font_size", 25)
     duel_mode_button = _button(ui, "RIVAL: IA (CAMBIAR)", Vector2(460, 430), Vector2(360, 60), func(): _toggle_duel_mode())
     campaign_button = _button(ui, "CAMPAÑA: DESACTIVADA", Vector2(460, 500), Vector2(360, 55), func(): _toggle_campaign())
-    restart_button = _button(ui, "REPETIR COMBATE", Vector2(460, 350), Vector2(360, 75), func(): get_tree().reload_current_scene())
+    restart_button = _button(ui, "REPETIR COMBATE", Vector2(460, 350), Vector2(360, 75), _restart_or_continue)
     restart_button.hide()
     technique_buttons["light"] = _button(ui, "JAB", Vector2(875, 590), Vector2(110, 70), func(): hacker.quick_attack())
     technique_buttons["heavy"] = _button(ui, "CROSS", Vector2(995, 510), Vector2(110, 70), func(): hacker.heavy_attack())
@@ -478,13 +531,13 @@ func _build_ui() -> void:
     loadout_label.position = Vector2(300, 535)
     loadout_label.add_theme_font_size_override("font_size", 17)
     ui.add_child(loadout_label)
-    loadout_button = _button(ui, "CAMBIAR TÉCNICAS", Vector2(300, 585), Vector2(290, 65), func(): _cycle_loadout())
+    loadout_button = _button(ui, "CAMBIAR TÉCNICAS", Vector2(460, 580), Vector2(360, 60), func(): _cycle_loadout())
     _button(ui, "AMAGUE", Vector2(500, 500), Vector2(115, 65), func(): _try_feint())
     _button(ui, "PARADA", Vector2(875, 505), Vector2(110, 70), func(): _try_parry())
     _button(ui, "BLOQUEO", Vector2(745, 510), Vector2(120, 70), func(): _set_player_block(true), func(): _set_player_block(false))
 
 func _unhandled_key_input(event: InputEvent) -> void:
-    if not event is InputEventKey:
+    if story_screen.visible or selection.visible or not event is InputEventKey:
         return
     var key_event: InputEventKey = event
     if key_event.echo:
@@ -501,7 +554,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
     if key_event.keycode == KEY_V and match_started and not match_over:
         broadcast_view = not broadcast_view
         for action_button in action_buttons:
-            if action_button != start_button and action_button != loadout_button and action_button != restart_button:
+            if action_button not in [start_button, loadout_button, restart_button, campaign_button, duel_mode_button]:
                 action_button.visible = not broadcast_view
         return
     if not match_started:
@@ -525,6 +578,10 @@ func _unhandled_key_input(event: InputEvent) -> void:
             KEY_6:
                 chico.feint()
     match key_event.keycode:
+        KEY_U:
+            hacker.basic_heavy()
+        KEY_H:
+            hacker.basic_attack()
         KEY_J:
             hacker.quick_attack()
         KEY_K:
@@ -550,8 +607,14 @@ func _open_campaign_step() -> void:
             return
         _start_combat()
         return
+    var lines := CondenaChapterOneScript.lines_for(scene_number - 1)
+    if scene_number == 1:
+        lines[0]["ambience"] = true
+        lines.insert(1, {"clip": 0})
+    elif scene_number == 2:
+        lines.push_front({"clip": 1})
     story_screen.present("CAPÍTULO 1 — EL POLLO | %s" % CondenaChapterOneScript.title_for(scene_number - 1),
-        CondenaChapterOneScript.lines_for(scene_number - 1))
+        lines)
 
 func _on_story_scene_finished() -> void:
     if not campaign_mode:
@@ -571,15 +634,17 @@ func _toggle_campaign() -> void:
     if match_started or match_over:
         return
     campaign_mode = not campaign_mode
+    loadout_button.visible = not campaign_mode
     if campaign_mode:
         local_duel = false
         duel_mode_button.text = "RIVAL: IA"
+    start_button.text = "CONTINUAR CAMPAÑA" if campaign_mode else "INICIAR COMBATE"
     campaign_button.text = "CAMPAÑA: ACTIVADA" if campaign_mode else "CAMPAÑA: DESACTIVADA"
     var profile := SaveSystemV2.load_profile()
     profile["campaign_active"] = campaign_mode
     SaveSystemV2.save_profile(profile)
     var status := campaign_bridge.current_status()
-    tutorial_label.text = "Capítulo 1 — escena %d/9. Las escenas narrativas aún están pendientes." % (int(status["scene"]) + 1) if campaign_mode else "Lee al rival: bloqueo pierde ante agarre; parada pierde ante agarre."
+    tutorial_label.text = "Capítulo 1 — escena %d/9. EL POLLO." % (int(status["scene"]) + 1) if campaign_mode else "Lee al rival: bloqueo pierde ante agarre; parada pierde ante agarre."
 
 func _toggle_duel_mode() -> void:
     if match_started or match_over:
@@ -587,6 +652,8 @@ func _toggle_duel_mode() -> void:
     local_duel = not local_duel
     if local_duel and campaign_mode:
         campaign_mode = false
+        loadout_button.show()
+        start_button.text = "INICIAR COMBATE"
         campaign_button.text = "CAMPAÑA: DESACTIVADA"
         var profile := SaveSystemV2.load_profile()
         profile["campaign_active"] = false
@@ -631,6 +698,9 @@ func _start_combat() -> void:
     if campaign_mode and (campaign_bridge.campaign.current_fight_index() < 0 or (campaign_bridge.campaign.scene_index == 4 and not campaign_bridge.campaign.choices.has("flaco"))):
         _open_campaign_step()
         return
+    if not prepared:
+        selection.present(hacker)
+        return
     if campaign_mode:
         if not campaign_bridge.start_current_fight(hacker, chico):
             status_label.text = "Completa las escenas narrativas antes del siguiente combate."
@@ -640,6 +710,10 @@ func _start_combat() -> void:
         enemy_health_bar.max_value = chico.max_health
         enemy_health_bar.value = chico.health
     match_started = true
+    for b in action_buttons:
+        b.visible = b != restart_button
+        b.focus_mode = Control.FOCUS_NONE
+    status_label.text = ""
     start_button.hide()
     loadout_button.hide()
     loadout_label.hide()
@@ -647,22 +721,30 @@ func _start_combat() -> void:
     campaign_button.hide()
     tutorial_label.hide()
     combat_ai.set_physics_process(not local_duel)
+    if campaign_mode and campaign_bridge.active_fight_index == 0:
+        chico.position.x = hacker.position.x + 118.0
+        chico.facing = -1.0
+        chico.quick_attack()
 
 func _cycle_loadout() -> void:
     if match_started or match_over or hacker.busy:
         return
-    var alternate: bool = hacker.equipped_moves["light"] == "jab"
-    hacker.equip_move("light", "low_kick" if alternate else "jab")
-    hacker.equip_move("heavy", "elbow" if alternate else "cross")
-    hacker.equip_move("grapple", "takedown" if alternate else "clinch")
+    selection.present(hacker)
+
+func _confirm_techniques() -> void:
+    var profile := SaveSystemV2.load_profile()
+    profile["techniques"] = hacker.equipped_moves.duplicate()
+    SaveSystemV2.save_profile(profile)
+    prepared = true
     _refresh_loadout_label()
+    _start_combat()
 
 func _refresh_loadout_label() -> void:
     loadout_label.text = "Técnicas: %s / %s / %s" % [hacker.equipped_moves["light"], hacker.equipped_moves["heavy"], hacker.equipped_moves["grapple"]]
     for slot in technique_buttons:
         var move_id: String = str(hacker.equipped_moves[slot])
         var cost: int = int(CondenaFighter.MOVE_DATA[move_id]["cost"])
-        technique_buttons[slot].text = "%s\n%d RES." % [MOVE_LABELS[move_id], cost]
+        technique_buttons[slot].text = "%s\n%s · %d" % [CondenaFighter.MOVE_LABELS[move_id], {"light": "J/X", "heavy": "K/Y", "grapple": "L/RT"}[slot], cost]
 
 func _meter(parent: Control, pos: Vector2, size: Vector2, fill_color: Color) -> ProgressBar:
     var bar := ProgressBar.new()
@@ -710,8 +792,11 @@ func _button(parent: Control, caption: String, pos: Vector2, size: Vector2, pres
     b.add_theme_stylebox_override("hover", _button_style(Color("#2a363b"), Color("#a4ada9")))
     b.add_theme_stylebox_override("pressed", _button_style(Color("#6b3430"), Color("#d7a48a")))
     b.add_theme_stylebox_override("disabled", _button_style(Color("#1b2022"), Color("#353c40")))
-    b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
-    b.button_down.connect(pressed_action)
+    b.add_theme_stylebox_override("focus", _button_style(Color("#303030"), Color.WHITE))
+    if released_action.is_valid():
+        b.button_down.connect(pressed_action)
+    else:
+        b.pressed.connect(pressed_action)
     if released_action.is_valid():
         b.button_up.connect(released_action)
     parent.add_child(b)
@@ -744,7 +829,10 @@ func _finish_match(winner: String, result_title: String) -> void:
     combat_ai.set_physics_process(false)
     hacker.set_direction(0.0)
     chico.set_direction(0.0)
-    status_label.text = result_title + " — La historia continúa"
+    status_label.position.x = 80
+    status_label.size.x = 1120
+    status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    status_label.text = result_title
     if winner != "EMPATE":
         var stats: Dictionary = fighter_stats[winner]
         status_label.text += "\n%s: %d impactos · %d combos · %d esquivas · %d paradas · %d contras" % [winner, int(stats["hits"]), int(stats["combos"]), int(stats["dodges"]), int(stats["parries"]), int(stats["counters"])]
@@ -758,12 +846,19 @@ func _finish_match(winner: String, result_title: String) -> void:
     player_stamina_bar.value = hacker.stamina
     enemy_stamina_bar.value = chico.stamina
     restart_button.show()
+    restart_button.focus_mode = Control.FOCUS_ALL
+    restart_button.grab_focus()
     broadcast_view = false
     _save_match_record(winner)
     if campaign_mode and winner != "EMPATE":
         var progressed := campaign_bridge.submit_combat_result(winner == "HACKER")
         if progressed:
-            status_label.text += "\nProgreso de campaña guardado. Reinicia para continuar."
+            restart_button.text = "CONTINUAR CAPÍTULO"
+            continue_chapter = true
+            if campaign_bridge.campaign.scene_index == 3:
+                tutorial_label.text = "El Chico cae abatido contra una mesa. Los presos murmuran. El protagonista queda exhausto." if winner == "HACKER" else "El Chico derriba al protagonista y lo humilla."
+                tutorial_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+                tutorial_label.show()
 
 
 func _save_match_record(winner: String) -> void:
@@ -784,3 +879,8 @@ func _save_match_record(winner: String) -> void:
     file.store_string(JSON.stringify(record, "\t"))
     file.close()
     match_export_path = ProjectSettings.globalize_path("user://condena_last_match.json")
+
+func _restart_or_continue() -> void:
+    if continue_chapter:
+        get_tree().set_meta("resume_condena", true)
+    get_tree().reload_current_scene()

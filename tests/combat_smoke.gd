@@ -24,6 +24,8 @@ func _run() -> void:
         _fail("No se activo el modo duelo local")
         return
     arena.call("_start_combat")
+    arena.selection.hide()
+    arena._confirm_techniques()
     var ai: AIElChico = arena.get("combat_ai")
     if ai.is_physics_processing():
         _fail("La IA siguio activa en el duelo local")
@@ -77,13 +79,13 @@ func _run() -> void:
     if hacker.stamina < stamina_after_attack - 0.1:
         _fail("El spam de botones cobro dos ataques simultaneos")
         return
-    await create_timer(0.40).timeout
+    await create_timer(0.48).timeout
     if chico.health >= health_before:
         _fail("El jab en alcance no hizo daño")
         return
 
     hacker.quick_attack()
-    await create_timer(0.40).timeout
+    await create_timer(0.48).timeout
     if hacker.combo_hits < 2:
         _fail("Dos golpes confirmados no registraron combo")
         return
@@ -91,7 +93,7 @@ func _run() -> void:
     chico.set_block(true)
     var guarded_before: float = chico.health
     hacker.quick_attack()
-    await create_timer(0.40).timeout
+    await create_timer(0.48).timeout
     var guarded_damage: float = guarded_before - chico.health
     if guarded_damage <= 0.0 or guarded_damage >= hacker.attack_damage:
         _fail("El bloqueo no redujo el daño del jab")
@@ -105,7 +107,7 @@ func _run() -> void:
         _fail("El amague infligio daño")
         return
 
-    await create_timer(0.40).timeout
+    await create_timer(0.48).timeout
     var parry_health: float = hacker.health
     hacker.parry()
     var parry_result: String = hacker.receive_hit(15.0, "heavy", "cross")
@@ -173,5 +175,6 @@ func _run() -> void:
     if draw_arena.get("match_result") != "EMPATE":
         _fail("El empate no se registra correctamente")
         return
+    await create_timer(0.85).timeout
     print("CONDENA SMOKE OK: 1v1, combos, tecnicas, registro JSON, cierre unico y empate")
     quit(0)

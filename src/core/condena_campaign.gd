@@ -3,6 +3,7 @@ class_name CondenaCampaign
 
 # Estructura tecnica del capitulo. Los textos del guion aprobado se integran
 # por separado: este archivo no inventa escenas ni dialogos.
+const COMEDOR_REPUTATION := {"A": -5, "B": 10, "C": 0}
 const CHAPTER_ID := "el_pollo"
 const SCENE_COUNT := 9
 const FIGHT_SCENES := [2, 4, 7]
@@ -16,6 +17,11 @@ const OPPONENTS := [
 var scene_index: int = 0
 var completed_fights: Array[int] = []
 var choices: Dictionary = {}
+
+# La decisión guardada es la fuente única, incluso para partidas antiguas.
+var reputation: int:
+    get:
+        return int(COMEDOR_REPUTATION.get(choices.get("comedor", ""), 0))
 
 func load_progress() -> void:
     var profile := SaveSystemV2.load_profile()

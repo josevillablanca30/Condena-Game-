@@ -47,6 +47,7 @@ signal confirmed_hit(move_id: String, target: CondenaFighter)
 signal combat_event(event_name: String, move_id: String)
 # Repertorio configurable: las técnicas comparten ranuras y tienen costes propios.
 var equipped_moves: Dictionary = {"light": "jab", "heavy": "cross", "grapple": "clinch"}
+const MOVE_LABELS := {"jab": "JAB", "low_kick": "PATADA BAJA", "cross": "CROSS", "elbow": "CODAZO", "clinch": "CLINCH", "takedown": "DERRIBO"}
 const MOVE_DATA := {
     "jab": {"kind": "quick", "cost": 10.0, "damage": 1.0, "reach": 95.0, "duration": 0.28},
     "low_kick": {"kind": "quick", "cost": 16.0, "damage": 1.1, "reach": 120.0, "duration": 0.43},
@@ -55,11 +56,14 @@ const MOVE_DATA := {
     "clinch": {"kind": "grab", "cost": 25.0, "damage": 1.25, "reach": 65.0, "duration": 0.50},
     "takedown": {"kind": "grab", "cost": 36.0, "damage": 1.55, "reach": 55.0, "duration": 0.72}
 }
-const MOVE_SLOTS := {"light": ["jab", "low_kick"], "heavy": ["cross", "elbow"], "grapple": ["clinch", "takedown"]}
+const MOVE_SLOTS := ["light", "heavy", "grapple"]
 
 func equip_move(slot: String, move_id: String) -> bool:
-    if busy or dead or not MOVE_SLOTS.has(slot) or not move_id in MOVE_SLOTS[slot]:
+    if busy or dead or not equipped_moves.has(slot) or not MOVE_DATA.has(move_id):
         return false
+    var previous_slot = equipped_moves.find_key(move_id)
+    if previous_slot != null:
+        equipped_moves[previous_slot] = equipped_moves[slot]
     equipped_moves[slot] = move_id
     return true
 
@@ -68,6 +72,15 @@ func use_move(slot: String) -> void:
         return
     var data: Dictionary = MOVE_DATA[equipped_moves[slot]]
     _attack(str(equipped_moves[slot]), float(data["cost"]), attack_damage * float(data["damage"]), float(data["reach"]), float(data["duration"]), str(data["kind"]))
+
+func can_attack(cost: float) -> bool:
+    return not dead and not busy and not blocking and stun_time <= 0.0 and knockdown_time <= 0.0 and recovery_time <= 0.0 and stamina >= cost
+
+func basic_attack() -> void:
+    _attack("jab", 8.0, attack_damage * 0.68, 78.0, 0.30, "quick")
+
+func basic_heavy() -> void:
+    _attack("cross", 19.0, attack_damage * 1.25, 85.0, 0.55, "heavy")
 
 func _ready() -> void:
     # Colisión corporal real entre luchadores, sin atravesarse.
@@ -126,7 +139,7 @@ func set_direction(value: float) -> void:
 func set_block(value: bool) -> void:
     if dead:
         return
-    blocking = value and not busy and knockdown_time <= 0.0 and stun_time <= 0.0
+    blocking = value and recovery_time <= 0.0 and not busy and knockdown_time <= 0.0 and stun_time <= 0.0
 
 func parry() -> void:
     # Defensa activa de alto riesgo: solo 0.16 s para leer un golpe.
@@ -189,7 +202,7 @@ func feint() -> void:
         recovery_time = 0.12
 
 func _attack(move_id: String, cost: float, damage: float, reach: float, duration: float, kind: String) -> void:
-    if dead or busy or blocking or stun_time > 0.0 or knockdown_time > 0.0 or recovery_time > 0.0 or stamina < cost:
+    if not can_attack(cost):
         return
     stamina -= cost
     busy = true
@@ -274,6 +287,7 @@ func receive_hit(damage: float, kind: String = "quick", move_id: String = "") ->
         return "parried"
     hit_reaction_time = 0.24
     # La guardia absorbe daño pero no es universal: los agarres la superan.
+    parry_window = 0.0
     var was_blocking := blocking
     var guard_broken := false
     if blocking and kind != "grab":

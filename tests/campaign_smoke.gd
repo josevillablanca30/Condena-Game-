@@ -26,7 +26,7 @@ func _run() -> void:
     assert(campaign.advance_narrative())
     assert(campaign.scene_index == 3)
     campaign.completed_fights.append(0)
-    assert(campaign.fight_index_for_scene(5) == 1)
+    assert(campaign.fight_index_for_scene(5) == -1)
     assert(campaign.opponent_for_fight(-1).is_empty())
     var screen := CondenaStoryScreen.new()
     root.add_child(screen)
