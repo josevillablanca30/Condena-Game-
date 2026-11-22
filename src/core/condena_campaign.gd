@@ -23,6 +23,14 @@ var reputation: int:
     get:
         return int(COMEDOR_REPUTATION.get(choices.get("comedor", ""), 0))
 
+func moral_consequences() -> Dictionary:
+    var decision: String = choices.get("joven", "")
+    return {
+        "aliado_joven": decision == "A", "hostilidad_guaton": decision == "A",
+        "preserva_recursos": decision == "B", "pierde_moralidad": decision == "B",
+        "respeto_por_miedo": decision == "C"
+    }
+
 func load_progress() -> void:
     var profile := SaveSystemV2.load_profile()
     var data: Dictionary = profile.get(SAVE_KEY, {})

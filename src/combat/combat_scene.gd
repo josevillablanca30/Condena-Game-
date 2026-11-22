@@ -84,7 +84,7 @@ func _ready() -> void:
     hacker.confirmed_hit.connect(_on_confirmed_hit)
     chico.confirmed_hit.connect(_on_confirmed_hit)
     hacker.combat_event.connect(func(event_name: String, move_id: String): _record_event("HACKER", event_name, move_id))
-    chico.combat_event.connect(func(event_name: String, move_id: String): _record_event("EL CHICO", event_name, move_id))
+    chico.combat_event.connect(func(event_name: String, move_id: String): _record_event(chico.fighter_name.to_upper(), event_name, move_id))
     hacker.combo_changed.connect(_update_combo)
     campaign_bridge = CampaignBridge.new()
     add_child(campaign_bridge)
@@ -603,11 +603,11 @@ func _open_campaign_step() -> void:
     var scene_number := int(status["scene"]) + 1
     if int(status["fight_index"]) >= 0:
         if scene_number == 5 and not campaign_bridge.campaign.choices.has("flaco"):
-            story_screen.present("ESCENA 05 — LA SEGUNDA PRUEBA", CondenaChapterOneScript.lines_for(4))
+            story_screen.present("ESCENA 05 — LA SEGUNDA PRUEBA", _campaign_lines(4))
             return
         _start_combat()
         return
-    var lines := CondenaChapterOneScript.lines_for(scene_number - 1)
+    var lines := _campaign_lines(scene_number - 1)
     if scene_number == 1:
         lines[0]["ambience"] = true
         lines.insert(1, {"clip": 0})
@@ -615,6 +615,24 @@ func _open_campaign_step() -> void:
         lines.push_front({"clip": 1})
     story_screen.present("CAPÍTULO 1 — EL POLLO | %s" % CondenaChapterOneScript.title_for(scene_number - 1),
         lines)
+
+func _campaign_lines(index: int) -> Array[Dictionary]:
+    var lines := CondenaChapterOneScript.lines_for(index)
+    if CondenaChapterOneScript.PENDING_CLIPS.has(index):
+        var path := "res://assets/cinematics/%s.ogv" % CondenaChapterOneScript.PENDING_CLIPS[index]
+        if ResourceLoader.exists(path):
+            lines.push_front({"video_path": path})
+    # Si se cierra tras elegir, reconstruir la consecuencia sin volver a elegir.
+    for entry in lines:
+        for option in entry.get("choices", []):
+            if campaign_bridge.campaign.choices.get(option.id) == option.value:
+                entry.erase("choices")
+                if option.has("reply"):
+                    lines.append({"speaker": entry.speaker, "text": option.reply})
+                elif option.id == "joven":
+                    lines.append({"speaker": "", "text": CondenaChapterOneScript.JOVEN_OUTCOMES[option.value]})
+                break
+    return lines
 
 func _on_story_scene_finished() -> void:
     if not campaign_mode:
@@ -706,6 +724,9 @@ func _start_combat() -> void:
             status_label.text = "Completa las escenas narrativas antes del siguiente combate."
             return
         _select_campaign_ai(campaign_bridge.active_fight_index)
+        fighter_stats[chico.fighter_name] = fighter_stats["EL CHICO"].duplicate()
+        if chico.fighter_name != "EL CHICO":
+            fighter_stats.erase("EL CHICO")
         enemy_label.text = chico.fighter_name
         enemy_health_bar.max_value = chico.max_health
         enemy_health_bar.value = chico.health
@@ -809,7 +830,7 @@ func _finish_draw() -> void:
     _finish_match("EMPATE", "EMPATE")
 
 func _finish(won: bool) -> void:
-    var winner := "HACKER" if won else "EL CHICO"
+    var winner := "HACKER" if won else chico.fighter_name.to_upper()
     var result_title := ("GANA HACKER" if won else "GANA EL CHICO") if local_duel else ("GANASTE" if won else "PERDISTE")
     _finish_match(winner, result_title)
 

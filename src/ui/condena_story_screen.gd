@@ -12,6 +12,7 @@ var still := TextureRect.new()
 var panel := PanelContainer.new()
 var ambience := AudioStreamPlayer.new()
 var clip_index := -1
+var still_path := ""
 var title_label: Label
 var speaker_label: Label
 var dialogue_label: RichTextLabel
@@ -97,10 +98,11 @@ func _show_line() -> void:
         scene_finished.emit()
         return
     var entry: Dictionary = lines[line_index]
-    if entry.has("clip"):
-        clip_index = int(entry["clip"])
+    if entry.has("clip") or entry.has("video_path"):
+        clip_index = int(entry.get("clip", -1))
+        still_path = CLIPS[clip_index] + ".jpg" if clip_index >= 0 else ""
         ambience.stop()
-        film.stream = load(CLIPS[clip_index] + ".ogv")
+        film.stream = load(entry["video_path"] if entry.has("video_path") else CLIPS[clip_index] + ".ogv")
         panel.hide()
         film.show()
         film.play()
@@ -108,6 +110,10 @@ func _show_line() -> void:
             film.modulate.a = 0.0
             create_tween().tween_property(film, "modulate:a", 1.0, 0.45)
         return
+    if entry.get("fade", false):
+        still.texture = null
+        panel.modulate.a = 0
+        create_tween().tween_property(panel, "modulate:a", 1.0, 0.6)
     panel.anchor_top = 0.30 if entry.has("ambience") else 0.44
     panel.anchor_bottom = 0.70 if entry.has("ambience") else 0.92
     if entry.has("ambience"):
@@ -149,6 +155,8 @@ func _choose(key: String, value: String) -> void:
     for option in entry.get("choices", []):
         if option is Dictionary and str(option.get("id", "")) == key and str(option.get("value", "")) == value:
             var reply := str(option.get("reply", ""))
+            if key == "joven":
+                lines.insert(line_index + 1, {"speaker": "", "text": CondenaChapterOneScript.JOVEN_OUTCOMES[value]})
             if not reply.is_empty():
                 lines.insert(line_index + 1, {"speaker": entry.get("speaker", ""), "text": reply})
             break
@@ -161,7 +169,7 @@ func _next_line() -> void:
     _show_line()
 
 func _film_finished() -> void:
-    still.texture = load(CLIPS[clip_index] + ".jpg")
+    still.texture = load(still_path) if not still_path.is_empty() else null
     film.hide()
     panel.show()
     _next_line()
