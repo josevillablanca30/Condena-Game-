@@ -22,6 +22,8 @@ var opponent: CondenaFighter
 var attack_serial := 0
 var invulnerable := false
 var stun_time := 0.0
+var armored_grabs := false
+var guard_damage_scale := 0.25
 var guard_pressure := 0.0
 var leg_slow_time := 0.0
 var knockdown_time := 0.0
@@ -152,11 +154,11 @@ func parry() -> void:
     var serial := attack_serial
     parry_window = 0.16
     combat_event.emit("parry_attempt", "")
-    await get_tree().create_timer(0.16).timeout
+    await get_tree().create_timer(0.16, false).timeout
     if not is_inside_tree() or dead or serial != attack_serial:
         return
     parry_window = 0.0
-    await get_tree().create_timer(0.20).timeout
+    await get_tree().create_timer(0.20, false).timeout
     if is_inside_tree() and not dead and serial == attack_serial:
         busy = false
         recovery_time = maxf(recovery_time, 0.20)
@@ -175,7 +177,7 @@ func dodge() -> void:
     invulnerable = true
     var away := -1.0 if opponent != null and opponent.position.x > position.x else 1.0
     dodge_velocity = away * 525.0
-    await get_tree().create_timer(0.2).timeout
+    await get_tree().create_timer(0.2, false).timeout
     if is_inside_tree() and not dead:
         invulnerable = false
         dodge_velocity = 0.0
@@ -196,7 +198,7 @@ func feint() -> void:
     var serial := attack_serial
     feint_window = 0.18
     combat_event.emit("feint", "")
-    await get_tree().create_timer(0.18).timeout
+    await get_tree().create_timer(0.18, false).timeout
     if is_inside_tree() and not dead and serial == attack_serial:
         busy = false
         recovery_time = 0.12
@@ -216,8 +218,9 @@ func _attack(move_id: String, cost: float, damage: float, reach: float, duration
     var serial := attack_serial
     var combo_damage_scale := maxf(0.60, 1.0 - float(combo_hits) * 0.12)
     var chained_hit := combo_hits > 0 and combo_window > 0.0
+    var missed := true
     var locked_facing := facing
-    await get_tree().create_timer(duration * 0.45).timeout
+    await get_tree().create_timer(duration * 0.45, false).timeout
     if not is_inside_tree() or dead or serial != attack_serial:
         return
     # La zona de impacto se proyecta delante del atacante, no alrededor de su centro.
@@ -226,6 +229,8 @@ func _attack(move_id: String, cost: float, damage: float, reach: float, duration
         var relative_x := (opponent.position.x - position.x) * locked_facing
         var contact := relative_x >= BODY_HALF_WIDTH and relative_x - BODY_HALF_WIDTH <= reach
         if contact and not opponent.invulnerable:
+            missed = false
+            counter_armed = counter_armed or opponent.recovery_time > 0
             var guard_expected := opponent.blocking and kind != "grab"
             var result: String = opponent.receive_hit(damage * combo_damage_scale * (1.2 if counter_armed and not guard_expected else 1.0), kind, move_id)
             if result == "parried":
@@ -262,13 +267,15 @@ func _attack(move_id: String, cost: float, damage: float, reach: float, duration
             combo_window = 0.0
             combo_changed.emit(0)
             combat_event.emit("attack_whiffed", move_id)
-    await get_tree().create_timer(duration * 0.55).timeout
+    await get_tree().create_timer(duration * 0.55, false).timeout
     if is_inside_tree() and serial == attack_serial:
         busy = false
         attack_kind = ""
         active_move_id = ""
         attack_pose_time = 0.0
         recovery_time = 0.10 if kind == "quick" else 0.20
+        if missed:
+            recovery_time += 0.06 if kind == "quick" else 0.10
 
 func receive_hit(damage: float, kind: String = "quick", move_id: String = "") -> String:
     if dead or invulnerable:
@@ -308,7 +315,7 @@ func receive_hit(damage: float, kind: String = "quick", move_id: String = "") ->
     combo_hits = 0
     combo_window = 0.0
     combo_changed.emit(0)
-    if busy and not blocking:
+    if busy and not blocking and not (armored_grabs and attack_kind == "grab"):
         attack_serial += 1
         busy = false
         attack_kind = ""
@@ -320,7 +327,7 @@ func receive_hit(damage: float, kind: String = "quick", move_id: String = "") ->
         combat_event.emit("guarded", move_id)
     elif guard_broken:
         combat_event.emit("guard_broken", move_id)
-    health = maxf(0.0, health - damage * (0.25 if guarded else 1.0))
+    health = maxf(0.0, health - damage * (guard_damage_scale if guarded else 1.0))
     if move_id == "low_kick" and not guarded:
         leg_slow_time = maxf(leg_slow_time, 2.0)
     if move_id == "takedown" and not guarded:

@@ -22,6 +22,8 @@ func start_current_fight(player: CondenaFighter, opponent: CondenaFighter) -> bo
     var config := campaign.opponent_for_fight(active_fight_index)
     if config.is_empty():
         return false
+    opponent.armored_grabs = active_fight_index == 2
+    opponent.guard_damage_scale = 0.15 if active_fight_index == 2 else 0.25
     opponent.fighter_name = str(config["name"])
     opponent.max_health = float(config["health"])
     opponent.health = opponent.max_health

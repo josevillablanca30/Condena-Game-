@@ -4,19 +4,22 @@ class_name AIElFlaco
 @export var fighter: CondenaFighter
 @export var target: CondenaFighter
 var cooldown := 0.0
-var dodge_cooldown := 0.0
+var last_read_serial := -1
 
 func _physics_process(delta: float) -> void:
     if fighter == null or target == null or fighter.dead or target.dead:
         return
-    cooldown -= delta
-    dodge_cooldown -= delta
+    cooldown = maxf(0, cooldown - delta)
     var distance := target.position.x - fighter.position.x
     var gap := absf(distance)
-    if target.busy and gap < 115.0 and dodge_cooldown <= 0.0 and randf() < 0.08:
-        fighter.dodge()
-        dodge_cooldown = 1.4
-    fighter.set_direction(signf(distance) if gap > 93.0 else (-signf(distance) if gap < 65.0 else 0.0))
-    if gap <= 105.0 and cooldown <= 0.0:
+    fighter.set_direction(signf(distance) if gap > 90 else (-signf(distance) if gap < 75 else 0.0))
+    if not fighter.can_attack(10):
+        return
+    if target.busy and gap < 115 and last_read_serial != target.attack_serial:
+        last_read_serial = target.attack_serial
+        if fighter.stamina >= 28 and randf() < 0.35:
+            fighter.dodge()
+            return
+    if gap <= 116 and (fighter.counter_window > 0 or target.recovery_time > 0 or cooldown <= 0):
         fighter.quick_attack()
         cooldown = randf_range(0.9, 1.4)
