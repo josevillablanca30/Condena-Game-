@@ -45,6 +45,10 @@ var campaign_bridge: CampaignBridge
 var campaign_mode := false
 var campaign_button: Button
 var selection := preload("res://src/ui/technique_select.gd").new()
+var cover := TextureRect.new()
+var menu_title := Label.new()
+var options_button: Button
+var pause_screen := preload("res://src/ui/pc_pause.gd").new()
 var hud := CanvasLayer.new()
 var continue_chapter := false
 var prepared := false
@@ -72,6 +76,11 @@ const EVENT_LABELS := {
 }
 
 func _ready() -> void:
+    var ink_shader := Shader.new()
+    ink_shader.code = "shader_type canvas_item; void fragment(){ float shade = dot(COLOR.rgb, vec3(0.299, 0.587, 0.114)); COLOR.rgb = vec3(shade); }"
+    var ink_material := ShaderMaterial.new()
+    ink_material.shader = ink_shader
+    material = ink_material
     hacker.opponent = chico
     chico.opponent = hacker
     hacker.defeated.connect(func(): _finish(false))
@@ -89,6 +98,8 @@ func _ready() -> void:
     campaign_bridge = CampaignBridge.new()
     add_child(campaign_bridge)
     _build_ui()
+    add_child(pause_screen)
+    pause_screen.returned_to_menu.connect(func(): get_tree().reload_current_scene())
     story_screen = CondenaStoryScreen.new()
     var story_layer := CanvasLayer.new()
     story_layer.layer = 10
@@ -120,6 +131,7 @@ func _ready() -> void:
     start_button.text = "CONTINUAR CAMPAÑA" if campaign_mode else "INICIAR COMBATE"
     loadout_label.hide()
     loadout_button.visible = not campaign_mode
+    _update_lobby()
     start_button.grab_focus()
     if campaign_mode and get_tree().get_meta("resume_condena", false):
         get_tree().remove_meta("resume_condena")
@@ -240,6 +252,17 @@ func _process(delta: float) -> void:
             return
     if match_over:
         return
+    if match_started and campaign_mode and campaign_bridge.active_fight_index == 0:
+        tutorial_label.visible = not broadcast_view and elapsed_seconds < 20.0
+        if tutorial_label.visible:
+            if elapsed_seconds < 5:
+                tutorial_label.text = "Distancia   ·   A/D o stick izquierdo"
+            elif elapsed_seconds < 10:
+                tutorial_label.text = "Golpe rápido H/A   ·   Golpe fuerte U/clic derecho del mando"
+            elif elapsed_seconds < 15:
+                tutorial_label.text = "Guardia Shift/LB   ·   Esquiva Espacio/B"
+            else:
+                tutorial_label.text = "Resistencia   ·   Deja de atacar para recuperarla"
     var keyboard_direction := 0.0
     if Input.is_key_pressed(KEY_A) or (not local_duel and Input.is_key_pressed(KEY_LEFT)):
         keyboard_direction -= 1.0
@@ -326,7 +349,14 @@ func _draw() -> void:
         var shadow_x: float = fighter.position.x
         draw_colored_polygon(PackedVector2Array([Vector2(shadow_x - 54, 486), Vector2(shadow_x + 54, 486), Vector2(shadow_x + 94, 505), Vector2(shadow_x - 94, 505)]), Color(0, 0, 0, 0.32))
     _draw_fighter(hacker, Color(0.88, 0.88, 0.88))
+    var figure_scale := Vector2.ONE
+    match chico.fighter_name:
+        "EL FLACO": figure_scale = Vector2(0.91, 1.08)
+        "PRESO GRANDE": figure_scale = Vector2(1.17, 1.07)
+    var feet := chico.position + Vector2(0, 61)
+    draw_set_transform(camera_shift + feet - feet * figure_scale, 0, figure_scale)
     _draw_fighter(chico, Color(0.55, 0.55, 0.55))
+    draw_set_transform(camera_shift)
     if hit_effect_time > 0.0:
         var strength := hit_effect_time / 0.18
         draw_arc(hit_effect_position, 24.0 + (1.0 - strength) * 18.0, 0.0, TAU, 20, Color(1.0, 0.94, 0.75, strength), 4.0)
@@ -478,13 +508,32 @@ func _build_ui() -> void:
     ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
     hud.add_child(ui)
+    cover.texture = preload("res://assets/cinematics/1000153316.jpg")
+    cover.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+    cover.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+    cover.modulate = Color(0.35, 0.35, 0.35)
+    cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    ui.add_child(cover)
+    cover.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    menu_title.text = "C O N D E N A"
+    menu_title.position = Vector2(80, 70)
+    menu_title.add_theme_font_size_override("font_size", 64)
+    ui.add_child(menu_title)
+    options_button = Button.new()
+    options_button.text = "OPCIONES   ·   ESC / START"
+    options_button.position = Vector2(80, 610)
+    options_button.size = Vector2(360, 45)
+    options_button.pressed.connect(pause_screen.open)
+    ui.add_child(options_button)
     health_label = Label.new()
     health_label.position = Vector2(36, 25)
     health_label.add_theme_font_size_override("font_size", 22)
     ui.add_child(health_label)
     enemy_label = Label.new()
     enemy_label.text = "EL CHICO"
-    enemy_label.position = Vector2(1130, 25)
+    enemy_label.position = Vector2(928, 25)
+    enemy_label.size.x = 315
+    enemy_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
     enemy_label.add_theme_font_size_override("font_size", 22)
     ui.add_child(enemy_label)
     player_health_bar = _meter(ui, Vector2(36, 61), Vector2(310, 19), Color(0.88, 0.88, 0.88))
@@ -619,7 +668,7 @@ func _open_campaign_step() -> void:
 func _campaign_lines(index: int) -> Array[Dictionary]:
     var lines := CondenaChapterOneScript.lines_for(index)
     if CondenaChapterOneScript.PENDING_CLIPS.has(index):
-        var path := "res://assets/cinematics/%s.ogv" % CondenaChapterOneScript.PENDING_CLIPS[index]
+        var path: String = "res://assets/cinematics/%s.ogv" % CondenaChapterOneScript.PENDING_CLIPS[index]
         if ResourceLoader.exists(path):
             lines.push_front({"video_path": path})
     # Si se cierra tras elegir, reconstruir la consecuencia sin volver a elegir.
@@ -644,7 +693,9 @@ func _on_story_scene_finished() -> void:
         var status := campaign_bridge.current_status()
         status_label.text = "ESCENA COMPLETADA — PROGRESO GUARDADO"
         if bool(status["finished"]):
-            status_label.text = "CAPÍTULO 1 COMPLETADO"
+            status_label.text = ""
+            _update_lobby()
+            start_button.grab_focus()
         else:
             _open_campaign_step()
 
@@ -656,13 +707,11 @@ func _toggle_campaign() -> void:
     if campaign_mode:
         local_duel = false
         duel_mode_button.text = "RIVAL: IA"
-    start_button.text = "CONTINUAR CAMPAÑA" if campaign_mode else "INICIAR COMBATE"
+    _update_lobby()
     campaign_button.text = "CAMPAÑA: ACTIVADA" if campaign_mode else "CAMPAÑA: DESACTIVADA"
     var profile := SaveSystemV2.load_profile()
     profile["campaign_active"] = campaign_mode
     SaveSystemV2.save_profile(profile)
-    var status := campaign_bridge.current_status()
-    tutorial_label.text = "Capítulo 1 — escena %d/9. EL POLLO." % (int(status["scene"]) + 1) if campaign_mode else "Lee al rival: bloqueo pierde ante agarre; parada pierde ante agarre."
 
 func _toggle_duel_mode() -> void:
     if match_started or match_over:
@@ -713,6 +762,9 @@ func _select_campaign_ai(index: int) -> void:
 func _start_combat() -> void:
     if match_started or match_over:
         return
+    if campaign_mode and campaign_bridge.campaign.is_chapter_complete():
+        _replay_confirmation()
+        return
     if campaign_mode and (campaign_bridge.campaign.current_fight_index() < 0 or (campaign_bridge.campaign.scene_index == 4 and not campaign_bridge.campaign.choices.has("flaco"))):
         _open_campaign_step()
         return
@@ -731,6 +783,11 @@ func _start_combat() -> void:
         enemy_health_bar.max_value = chico.max_health
         enemy_health_bar.value = chico.health
     match_started = true
+    cover.hide()
+    menu_title.hide()
+    options_button.hide()
+    for item in [health_label, enemy_label, player_health_bar, enemy_health_bar, player_stamina_bar, enemy_stamina_bar, timer_label]:
+        item.show()
     for b in action_buttons:
         b.visible = b != restart_button
         b.focus_mode = Control.FOCUS_NONE
@@ -743,6 +800,9 @@ func _start_combat() -> void:
     tutorial_label.hide()
     combat_ai.set_physics_process(not local_duel)
     if campaign_mode and campaign_bridge.active_fight_index == 0:
+        tutorial_label.position = Vector2(260, 460)
+        tutorial_label.size = Vector2(760, 44)
+        tutorial_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
         chico.position.x = hacker.position.x + 118.0
         chico.facing = -1.0
         chico.quick_attack()
@@ -878,6 +938,9 @@ func _finish_match(winner: String, result_title: String) -> void:
             continue_chapter = true
             if campaign_bridge.campaign.scene_index == 3:
                 tutorial_label.text = "El Chico cae abatido contra una mesa. Los presos murmuran. El protagonista queda exhausto." if winner == "HACKER" else "El Chico derriba al protagonista y lo humilla."
+                tutorial_label.position = Vector2(240, 246)
+                tutorial_label.size = Vector2(800, 72)
+                tutorial_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
                 tutorial_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
                 tutorial_label.show()
 
@@ -905,3 +968,45 @@ func _restart_or_continue() -> void:
     if continue_chapter:
         get_tree().set_meta("resume_condena", true)
     get_tree().reload_current_scene()
+
+func _update_lobby() -> void:
+    var campaign := campaign_bridge.campaign
+    for item in [health_label, enemy_label, player_health_bar, enemy_health_bar, player_stamina_bar, enemy_stamina_bar, timer_label]:
+        item.hide()
+    tutorial_label.position = Vector2(84, 185)
+    tutorial_label.size = Vector2(850, 80)
+    tutorial_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+    start_button.position = Vector2(80, 300)
+    duel_mode_button.position = Vector2(80, 390)
+    campaign_button.position = Vector2(80, 462)
+    loadout_button.position = Vector2(80, 532)
+    if campaign_mode:
+        var caption := "CAPÍTULO I   /   EL POLLO"
+        if campaign.is_chapter_complete():
+            tutorial_label.text = caption + "\nCapítulo completado · Reputación %d" % campaign.reputation
+            start_button.text = "VOLVER A JUGAR EL CAPÍTULO"
+        else:
+            tutorial_label.text = caption + "\n%02d   %s   ·   Reputación %d" % [campaign.scene_index + 1, CondenaChapterOneScript.title_for(campaign.scene_index), campaign.reputation]
+            start_button.text = "INICIAR CAMPAÑA" if campaign.scene_index == 0 else "CONTINUAR CAMPAÑA"
+    else:
+        start_button.text = "INICIAR COMBATE"
+        tutorial_label.text = "DUELO LOCAL"
+
+func _replay_confirmation() -> void:
+    var dialog := ConfirmationDialog.new()
+    add_child(dialog)
+    dialog.title = "Volver a jugar El Pollo"
+    dialog.dialog_text = "Se reiniciarán las decisiones y el progreso de este capítulo."
+    dialog.get_ok_button().text = "REINICIAR CAPÍTULO"
+    dialog.get_cancel_button().text = "CANCELAR"
+    dialog.canceled.connect(dialog.queue_free)
+    dialog.confirmed.connect(func():
+        var profile := SaveSystemV2.load_profile()
+        profile.erase(CondenaCampaign.SAVE_KEY)
+        if SaveSystemV2.save_profile(profile):
+            campaign_bridge.campaign.load_progress()
+            _update_lobby()
+            _open_campaign_step()
+        dialog.queue_free())
+    dialog.popup_centered()
+    dialog.get_cancel_button().grab_focus()
